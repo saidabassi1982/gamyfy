@@ -324,9 +324,9 @@ else{
     e.preventDefault();
     if(conn&&conn.open){
       lastState.typedAnswer=typeInput.value;
-      try{conn.send({type:'typing',team:myTeam,text:typeInput.value});}catch(err){}
+      try{conn.send({type:'typedSubmit',team:myTeam,text:typeInput.value});}catch(err){}
     }
-    phaseEl.textContent='Answer sent - wait for host';
+    phaseEl.textContent='ANSWER SUBMITTED - wait for host';
     typeInput.blur();
     vibrate(35);
   });

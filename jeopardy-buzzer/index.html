@@ -78,7 +78,7 @@ body{display:flex;flex-direction:column;padding:20px;gap:14px}
 <button class="btn-buzz disarmed" id="buzz" disabled>Waiting…</button>
 <div class="type-panel hidden" id="typePanel">
   <div class="type-label">Type your answer</div>
-  <input class="type-input" id="typeInput" type="text" autocomplete="off" autocapitalize="characters" placeholder="Type the answer…" />
+  <input class="type-input" id="typeInput" type="text" autocomplete="off" autocapitalize="characters" enterkeyhint="done" placeholder="Type the answer…" />
 </div>
 <div class="phone-screen hidden" id="finalScreen">
   <div class="final-card">
@@ -318,6 +318,17 @@ else{
     if(!conn||!conn.open)return;
     lastState.typedAnswer=typeInput.value;
     try{conn.send({type:'typing',team:myTeam,text:typeInput.value});}catch(e){}
+  });
+  typeInput.addEventListener('keydown',e=>{
+    if(e.key!=='Enter')return;
+    e.preventDefault();
+    if(conn&&conn.open){
+      lastState.typedAnswer=typeInput.value;
+      try{conn.send({type:'typing',team:myTeam,text:typeInput.value});}catch(err){}
+    }
+    phaseEl.textContent='Answer sent - wait for host';
+    typeInput.blur();
+    vibrate(35);
   });
 }
 </script>

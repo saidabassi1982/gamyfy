@@ -52,6 +52,13 @@ body{display:flex;flex-direction:column;padding:20px;gap:14px}
 .final-submit:disabled{opacity:.45;box-shadow:none}
 .locked-badge{align-self:center;border-radius:999px;padding:12px 20px;background:rgba(255,223,61,.18);
   color:#ffdf3d;font-size:18px;font-weight:900;letter-spacing:1px}
+.type-panel{display:flex;flex-direction:column;gap:10px;margin-top:6px}
+.type-panel.hidden{display:none!important}
+.type-label{text-align:center;color:#ffdf3d;font-weight:900;font-size:13px;letter-spacing:1.5px;text-transform:uppercase}
+.type-input{width:100%;background:#0e0e3a;color:#fff;border:2px solid var(--team-color,#7a2bd6);
+  border-radius:18px;padding:18px;font-size:22px;font-weight:800;font-family:inherit;text-align:center;letter-spacing:1px;box-sizing:border-box}
+.type-input:focus{outline:none;background:#1a1455;box-shadow:0 0 30px var(--team-color,#7a2bd6)}
+.type-input::placeholder{color:rgba(255,255,255,.3);font-weight:600;letter-spacing:.5px;font-size:16px}
 @keyframes armedPulse{
   0%,100%{filter:brightness(1)}
   50%{filter:brightness(1.18)}
@@ -69,6 +76,10 @@ body{display:flex;flex-direction:column;padding:20px;gap:14px}
 <div class="team-name" id="teamName">…</div>
 <div class="phase" id="phase">&nbsp;</div>
 <button class="btn-buzz disarmed" id="buzz" disabled>Waiting…</button>
+<div class="type-panel hidden" id="typePanel">
+  <div class="type-label">Type your answer</div>
+  <input class="type-input" id="typeInput" type="text" autocomplete="off" autocapitalize="characters" placeholder="Type the answer…" />
+</div>
 <div class="phone-screen hidden" id="finalScreen">
   <div class="final-card">
     <div class="final-kicker" id="finalKicker">Final Jeopardy</div>
@@ -105,10 +116,12 @@ const finalClue=document.getElementById('finalClue');
 const finalInput=document.getElementById('finalInput');
 const finalSubmit=document.getElementById('finalSubmit');
 const finalLocked=document.getElementById('finalLocked');
+const typePanel=document.getElementById('typePanel');
+const typeInput=document.getElementById('typeInput');
 
 let connected=false;
 let lastArmed=false;
-let lastState={hasClue:false,activeIdx:null,attempted:[],ddSolo:false,cluePickerIdx:null};
+let lastState={hasClue:false,activeIdx:null,attempted:[],ddSolo:false,cluePickerIdx:null,allowTyping:false,typedAnswer:''};
 let lastFinalState={phase:'board'};
 
 function setStatus(msg,kind){
@@ -213,6 +226,16 @@ function applyState(s){
   // vibrate on arming transition
   if(mode==='armed' && !lastArmed)vibrate([60,40,60]);
   lastArmed=(mode==='armed');
+  // Typed-answer panel: show only when this team is actively answering in verbal mode
+  const showType=mode==='you' && lastState.allowTyping && lastState.hasClue;
+  typePanel.classList.toggle('hidden',!showType);
+  if(showType){
+    if(document.activeElement!==typeInput && typeInput.value!==(lastState.typedAnswer||'')){
+      typeInput.value=lastState.typedAnswer||'';
+    }
+  } else {
+    typeInput.value='';
+  }
 }
 
 if(!room){setStatus('Missing room code','error');phaseEl.textContent='Open the QR from the host screen';}
@@ -232,6 +255,10 @@ else{
       if(data.type==='ack')return;
       if(data.type==='state')applyState(data);
       if(data.type==='finalState')applyFinalState(data);
+      if(data.type==='typedAnswer'){
+        lastState.typedAnswer=String(data.text||'');
+        if(document.activeElement!==typeInput)typeInput.value=lastState.typedAnswer;
+      }
     });
     conn.on('close',()=>{
       connected=false;
@@ -286,6 +313,11 @@ else{
   });
   finalInput.addEventListener('keydown',e=>{
     if(e.key==='Enter'&&!finalSubmit.classList.contains('hidden'))finalSubmit.click();
+  });
+  typeInput.addEventListener('input',()=>{
+    if(!conn||!conn.open)return;
+    lastState.typedAnswer=typeInput.value;
+    try{conn.send({type:'typing',team:myTeam,text:typeInput.value});}catch(e){}
   });
 }
 </script>

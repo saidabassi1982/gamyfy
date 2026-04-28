@@ -54,6 +54,10 @@ body{display:flex;flex-direction:column;padding:20px;gap:14px}
   color:#ffdf3d;font-size:18px;font-weight:900;letter-spacing:1px}
 .type-panel{display:flex;flex-direction:column;gap:10px;margin-top:6px}
 .type-panel.hidden{display:none!important}
+.choice-panel{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:6px}
+.choice-panel.hidden{display:none!important}
+.choice-btn{border:2px solid var(--team-color);border-radius:18px;background:#0e0e3a;color:#fff;font-size:28px;font-weight:900;padding:18px 10px;box-shadow:0 6px 0 rgba(0,0,0,.25)}
+.choice-btn:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.25)}
 .type-label{text-align:center;color:#ffdf3d;font-weight:900;font-size:13px;letter-spacing:1.5px;text-transform:uppercase}
 .type-input{width:100%;background:#0e0e3a;color:#fff;border:2px solid var(--team-color,#7a2bd6);
   border-radius:18px;padding:18px;font-size:22px;font-weight:800;font-family:inherit;text-align:center;letter-spacing:1px;box-sizing:border-box}
@@ -79,6 +83,11 @@ body{display:flex;flex-direction:column;padding:20px;gap:14px}
 <div class="type-panel hidden" id="typePanel">
   <div class="type-label">Type your answer</div>
   <input class="type-input" id="typeInput" type="text" autocomplete="off" autocapitalize="characters" enterkeyhint="done" placeholder="Type the answer…" />
+</div>
+<div class="choice-panel hidden" id="choicePanel">
+  <button class="choice-btn" data-choice="0">1</button>
+  <button class="choice-btn" data-choice="1">2</button>
+  <button class="choice-btn" data-choice="2">3</button>
 </div>
 <div class="phone-screen hidden" id="finalScreen">
   <div class="final-card">
@@ -118,10 +127,11 @@ const finalSubmit=document.getElementById('finalSubmit');
 const finalLocked=document.getElementById('finalLocked');
 const typePanel=document.getElementById('typePanel');
 const typeInput=document.getElementById('typeInput');
+const choicePanel=document.getElementById('choicePanel');
 
 let connected=false;
 let lastArmed=false;
-let lastState={hasClue:false,activeIdx:null,attempted:[],ddSolo:false,cluePickerIdx:null,allowTyping:false,typedAnswer:''};
+let lastState={hasClue:false,activeIdx:null,attempted:[],ddSolo:false,cluePickerIdx:null,allowTyping:false,typedAnswer:'',choiceOptions:[]};
 let lastFinalState={phase:'board'};
 
 function setStatus(msg,kind){
@@ -228,7 +238,10 @@ function applyState(s){
   lastArmed=(mode==='armed');
   // Typed-answer panel: show only when this team is actively answering in verbal mode
   const showType=mode==='you' && lastState.allowTyping && lastState.hasClue;
+  const showChoice=mode==='you' && !lastState.allowTyping && lastState.hasClue && Array.isArray(lastState.choiceOptions) && lastState.choiceOptions.length>0;
   typePanel.classList.toggle('hidden',!showType);
+  choicePanel.classList.toggle('hidden',!showChoice);
+  if(showChoice)choicePanel.querySelectorAll('button').forEach(b=>b.disabled=false);
   if(showType){
     if(document.activeElement!==typeInput && typeInput.value!==(lastState.typedAnswer||'')){
       typeInput.value=lastState.typedAnswer||'';
@@ -318,6 +331,16 @@ else{
     if(!conn||!conn.open)return;
     lastState.typedAnswer=typeInput.value;
     try{conn.send({type:'typing',team:myTeam,text:typeInput.value});}catch(e){}
+  });
+  choicePanel.querySelectorAll('[data-choice]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      if(!conn||!conn.open)return;
+      const choice=Number(btn.dataset.choice);
+      conn.send({type:'choice',team:myTeam,choice});
+      choicePanel.querySelectorAll('button').forEach(b=>b.disabled=true);
+      phaseEl.textContent='ANSWER SUBMITTED - wait for host';
+      vibrate(35);
+    });
   });
   typeInput.addEventListener('keydown',e=>{
     if(e.key!=='Enter')return;

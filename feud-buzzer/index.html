@@ -53,7 +53,7 @@ body{display:flex;flex-direction:column;padding:20px;gap:14px}
   <button class="fast-submit" id="fastSubmit">Submit Answer</button>
   <div class="fast-note" id="fastNote"></div>
 </div>
-<div class="foot">Keep this page open. Tap only when the host arms buzzers. If needed, tap the status to enter the room code manually.</div>
+<div class="foot">Keep this page open. Buzzers go live automatically each round. If a call or lock interrupts the page, reopen this same link and it will rejoin the room.</div>
 
 <script>
 const params = new URLSearchParams(location.search);
@@ -66,6 +66,7 @@ let peer = null;
 let conn = null;
 let retries = 0;
 let retryTimer = null;
+let wakeLock = null;
 
 document.documentElement.style.setProperty('--team-color', color);
 document.getElementById('room').textContent = activeRoom || '?';
@@ -92,13 +93,30 @@ function setStatus(msg, kind) {
 function vibrate(pattern) {
   if (navigator.vibrate) navigator.vibrate(pattern);
 }
+async function requestWakeLock() {
+  if (!('wakeLock' in navigator) || wakeLock) return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => { wakeLock = null; });
+  } catch (err) {}
+}
+function reconnectIfNeeded() {
+  if (document.hidden) return;
+  requestWakeLock();
+  if (!conn || !conn.open) {
+    retries = 0;
+    clearTimeout(retryTimer);
+    retryTimer = null;
+    startConnect();
+  }
+}
 function applyState(state) {
   if (activePrompt) return;
   lastState = Object.assign(lastState, state);
   const winnerIdx = lastState.winnerIdx;
   let mode = 'disarmed';
   let label = 'Waiting...';
-  let phase = 'Host will arm buzzers';
+  let phase = 'Waiting for the next live buzzer';
 
   if (winnerIdx === myTeam) {
     mode = 'you';
@@ -162,7 +180,7 @@ function clearFastPrompt(message) {
   fastCard.classList.remove('active');
   buzzBtn.style.display = '';
   fastNote.textContent = '';
-  phaseEl.textContent = message || 'Host will arm buzzers';
+  phaseEl.textContent = message || 'Waiting for the next live buzzer';
   applyState(lastState);
 }
 
@@ -259,8 +277,14 @@ function startConnect() {
 }
 
 startConnect();
+requestWakeLock();
+document.addEventListener('visibilitychange', reconnectIfNeeded);
+window.addEventListener('online', reconnectIfNeeded);
+window.addEventListener('pageshow', reconnectIfNeeded);
+document.addEventListener('pointerdown', requestWakeLock, { once: false });
 
 buzzBtn.addEventListener('click', () => {
+  requestWakeLock();
   if (buzzBtn.classList.contains('armed') && conn && conn.open) {
     conn.send({ type: 'buzz', team: myTeam });
     buzzBtn.classList.add('flash');

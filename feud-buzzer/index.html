@@ -25,6 +25,13 @@ body{display:flex;flex-direction:column;padding:20px;gap:14px}
 .btn-buzz.other{background:#1f2937;color:#cbd5e1;box-shadow:0 4px 0 rgba(0,0,0,.25);cursor:not-allowed;font-size:22px;letter-spacing:1px}
 .btn-buzz.flash{animation:buzzFlash .35s}
 .btn-buzz.shake{animation:buzzShake .35s}
+.fast-card{display:none;flex:1;flex-direction:column;gap:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:18px}
+.fast-card.active{display:flex}
+.fast-kicker{font-size:12px;color:#facc15;font-weight:900;letter-spacing:2px;text-transform:uppercase;text-align:center}
+.fast-question{flex:1;display:flex;align-items:center;justify-content:center;text-align:center;font-size:28px;font-weight:900;line-height:1.18}
+.fast-input{width:100%;min-height:54px;border:1px solid rgba(255,255,255,.18);border-radius:14px;background:#071427;color:#fff;font-size:22px;font-weight:800;padding:0 14px;text-align:center;user-select:text;-webkit-user-select:text}
+.fast-submit{min-height:58px;border:none;border-radius:14px;background:linear-gradient(180deg,var(--team-color),rgba(0,0,0,.25));color:#fff;font-size:18px;font-weight:900;letter-spacing:1px}
+.fast-note{text-align:center;color:#b6c6dd;font-size:12px;font-weight:700;min-height:18px}
 @keyframes armedPulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.18)}}
 @keyframes buzzFlash{0%{filter:brightness(2.4)}100%{filter:brightness(1)}}
 @keyframes buzzShake{0%{transform:translateX(0)}25%{transform:translateX(-12px)}50%{transform:translateX(12px)}75%{transform:translateX(-8px)}100%{transform:translateX(0)}}
@@ -39,6 +46,13 @@ body{display:flex;flex-direction:column;padding:20px;gap:14px}
 <div class="team-name" id="teamName">Team</div>
 <div class="phase" id="phase">&nbsp;</div>
 <button class="btn-buzz disarmed" id="buzz" disabled>Waiting...</button>
+<div class="fast-card" id="fastCard">
+  <div class="fast-kicker" id="fastKicker">Fast Money</div>
+  <div class="fast-question" id="fastQuestion"></div>
+  <input class="fast-input" id="fastAnswer" type="text" maxlength="40" autocomplete="off" />
+  <button class="fast-submit" id="fastSubmit">Submit Answer</button>
+  <div class="fast-note" id="fastNote"></div>
+</div>
 <div class="foot">Keep this page open. Tap only when the host arms buzzers. If needed, tap the status to enter the room code manually.</div>
 
 <script>
@@ -61,8 +75,15 @@ document.title = `Feud Buzzer - ${myName}`;
 const statusEl = document.getElementById('status');
 const phaseEl = document.getElementById('phase');
 const buzzBtn = document.getElementById('buzz');
+const fastCard = document.getElementById('fastCard');
+const fastKicker = document.getElementById('fastKicker');
+const fastQuestion = document.getElementById('fastQuestion');
+const fastAnswer = document.getElementById('fastAnswer');
+const fastSubmit = document.getElementById('fastSubmit');
+const fastNote = document.getElementById('fastNote');
 let lastArmed = false;
 let lastState = { armed: false, winnerIdx: null, teams: [] };
+let fastPrompt = null;
 
 function setStatus(msg, kind) {
   statusEl.textContent = msg;
@@ -72,6 +93,7 @@ function vibrate(pattern) {
   if (navigator.vibrate) navigator.vibrate(pattern);
 }
 function applyState(state) {
+  if (fastPrompt) return;
   lastState = Object.assign(lastState, state);
   const winnerIdx = lastState.winnerIdx;
   let mode = 'disarmed';
@@ -99,6 +121,31 @@ function applyState(state) {
 
   if (mode === 'armed' && !lastArmed) vibrate([60, 40, 60]);
   lastArmed = mode === 'armed';
+}
+
+function showFastPrompt(data) {
+  fastPrompt = data;
+  buzzBtn.style.display = 'none';
+  fastCard.classList.add('active');
+  fastKicker.textContent = data.playerLabel || 'Fast Money';
+  fastQuestion.textContent = data.question || '';
+  fastAnswer.value = '';
+  fastAnswer.disabled = false;
+  fastSubmit.disabled = false;
+  fastSubmit.textContent = 'Submit Answer';
+  fastNote.textContent = 'Type your answer and submit before time runs out.';
+  phaseEl.textContent = 'Fast Money answer';
+  setTimeout(() => fastAnswer.focus(), 80);
+  vibrate([50, 30, 50]);
+}
+
+function clearFastPrompt(message) {
+  fastPrompt = null;
+  fastCard.classList.remove('active');
+  buzzBtn.style.display = '';
+  fastNote.textContent = '';
+  phaseEl.textContent = message || 'Host will arm buzzers';
+  applyState(lastState);
 }
 
 function promptRoom() {
@@ -164,6 +211,8 @@ function startConnect() {
     conn.on('data', data => {
       if (!data || typeof data !== 'object') return;
       if (data.type === 'state') applyState(data);
+      if (data.type === 'fast-money-prompt') showFastPrompt(data);
+      if (data.type === 'fast-money-clear') clearFastPrompt();
     });
     conn.on('close', () => {
       setStatus('Reconnecting...', 'connecting');
@@ -202,6 +251,33 @@ buzzBtn.addEventListener('click', () => {
     setTimeout(() => buzzBtn.classList.remove('shake'), 350);
     vibrate([20, 40, 20]);
   }
+});
+
+function submitFastAnswer() {
+  if (!fastPrompt || !conn || !conn.open) return;
+  const answer = fastAnswer.value.trim();
+  if (!answer) {
+    fastNote.textContent = 'Enter an answer first.';
+    vibrate([20, 40, 20]);
+    return;
+  }
+  conn.send({
+    type: 'fast-money-answer',
+    team: myTeam,
+    player: fastPrompt.player,
+    questionIndex: fastPrompt.questionIndex,
+    answer
+  });
+  fastAnswer.disabled = true;
+  fastSubmit.disabled = true;
+  fastSubmit.textContent = 'Submitted';
+  fastNote.textContent = 'Answer sent to host.';
+  vibrate(40);
+}
+
+fastSubmit.addEventListener('click', submitFastAnswer);
+fastAnswer.addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitFastAnswer();
 });
 </script>
 </body>

@@ -83,7 +83,7 @@ const fastSubmit = document.getElementById('fastSubmit');
 const fastNote = document.getElementById('fastNote');
 let lastArmed = false;
 let lastState = { armed: false, winnerIdx: null, teams: [] };
-let fastPrompt = null;
+let activePrompt = null;
 
 function setStatus(msg, kind) {
   statusEl.textContent = msg;
@@ -93,7 +93,7 @@ function vibrate(pattern) {
   if (navigator.vibrate) navigator.vibrate(pattern);
 }
 function applyState(state) {
-  if (fastPrompt) return;
+  if (activePrompt) return;
   lastState = Object.assign(lastState, state);
   const winnerIdx = lastState.winnerIdx;
   let mode = 'disarmed';
@@ -124,7 +124,7 @@ function applyState(state) {
 }
 
 function showFastPrompt(data) {
-  fastPrompt = data;
+  activePrompt = Object.assign({ mode: 'fast-money' }, data);
   buzzBtn.style.display = 'none';
   fastCard.classList.add('active');
   fastKicker.textContent = data.playerLabel || 'Fast Money';
@@ -141,8 +141,24 @@ function showFastPrompt(data) {
   vibrate([50, 30, 50]);
 }
 
+function showAnswerPrompt(data) {
+  activePrompt = Object.assign({ mode: 'game-answer' }, data);
+  buzzBtn.style.display = 'none';
+  fastCard.classList.add('active');
+  fastKicker.textContent = data.teamName ? `${data.teamName} ANSWER` : 'Your Answer';
+  fastQuestion.textContent = data.question || 'Type your answer';
+  fastAnswer.value = '';
+  fastAnswer.disabled = false;
+  fastSubmit.disabled = false;
+  fastSubmit.textContent = 'Submit Answer';
+  fastNote.textContent = 'Submit the answer you want the host board to check.';
+  phaseEl.textContent = 'Answer now';
+  setTimeout(() => fastAnswer.focus(), 80);
+  vibrate([50, 30, 50]);
+}
+
 function clearFastPrompt(message) {
-  fastPrompt = null;
+  activePrompt = null;
   fastCard.classList.remove('active');
   buzzBtn.style.display = '';
   fastNote.textContent = '';
@@ -215,6 +231,8 @@ function startConnect() {
       if (data.type === 'state') applyState(data);
       if (data.type === 'fast-money-prompt') showFastPrompt(data);
       if (data.type === 'fast-money-clear') clearFastPrompt();
+      if (data.type === 'answer-prompt') showAnswerPrompt(data);
+      if (data.type === 'answer-clear') clearFastPrompt();
     });
     conn.on('close', () => {
       setStatus('Reconnecting...', 'connecting');
@@ -256,20 +274,28 @@ buzzBtn.addEventListener('click', () => {
 });
 
 function submitFastAnswer() {
-  if (!fastPrompt || !conn || !conn.open) return;
+  if (!activePrompt || !conn || !conn.open) return;
   const answer = fastAnswer.value.trim();
   if (!answer) {
     fastNote.textContent = 'Enter an answer first.';
     vibrate([20, 40, 20]);
     return;
   }
-  conn.send({
-    type: 'fast-money-answer',
-    team: myTeam,
-    player: fastPrompt.player,
-    questionIndex: fastPrompt.questionIndex,
-    answer
-  });
+  if (activePrompt.mode === 'game-answer') {
+    conn.send({
+      type: 'game-answer',
+      team: myTeam,
+      answer
+    });
+  } else {
+    conn.send({
+      type: 'fast-money-answer',
+      team: myTeam,
+      player: activePrompt.player,
+      questionIndex: activePrompt.questionIndex,
+      answer
+    });
+  }
   fastAnswer.disabled = true;
   fastSubmit.disabled = true;
   fastSubmit.textContent = 'Submitted';

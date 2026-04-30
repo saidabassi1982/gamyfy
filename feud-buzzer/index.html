@@ -133,7 +133,9 @@ function showFastPrompt(data) {
   fastAnswer.disabled = false;
   fastSubmit.disabled = false;
   fastSubmit.textContent = 'Submit Answer';
-  fastNote.textContent = 'Type your answer and submit before time runs out.';
+  fastNote.textContent = data.player === 1 && data.questionIndex === 0
+    ? 'Player 2: use the same team phone and try to reach 200.'
+    : 'Type your answer and submit before time runs out.';
   phaseEl.textContent = 'Fast Money answer';
   setTimeout(() => fastAnswer.focus(), 80);
   vibrate([50, 30, 50]);

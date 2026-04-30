@@ -311,6 +311,13 @@ function submitFastAnswer() {
       team: myTeam,
       answer
     });
+    fastAnswer.disabled = true;
+    fastSubmit.disabled = true;
+    fastSubmit.textContent = 'Submitted';
+    fastNote.textContent = 'Answer sent. Watch the game board.';
+    vibrate(40);
+    setTimeout(() => clearFastPrompt('Answer sent. Watch the board.'), 260);
+    return;
   } else {
     conn.send({
       type: 'fast-money-answer',

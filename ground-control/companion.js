@@ -125,12 +125,12 @@ function handleHostMessage(msg) {
       state.myColor = msg.color || "#f5bd36";
       document.body.classList.add("is-connected");
       document.body.classList.toggle("is-spectator", state.spectator);
-      setStatus(state.spectator ? "Watching (no free seat)" : `In as ${msg.name}`, "is-good");
+      setStatus(state.spectator ? "Watching (no available human)" : `In as ${msg.name}`, "is-good");
       ui.phoneSeat.hidden = false;
       ui.seatDot.style.background = state.myColor;
       ui.phoneName.textContent = state.spectator ? "Spectator" : msg.name;
       ui.phoneHint.textContent = state.spectator
-        ? "No Phone Companion seat is available, so answer controls are disabled."
+        ? "No available human player could be claimed. Bots cannot use phone controls."
         : "Connected";
       ui.playCard.hidden = false;
       break;

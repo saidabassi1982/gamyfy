@@ -25,6 +25,7 @@ const ui = {
   duelArea: document.querySelector("#duelArea"),
   duelPhoto: document.querySelector("#duelPhoto"),
   duelCat: document.querySelector("#duelCat"),
+  duelPrompt: document.querySelector("#duelPrompt"),
   phoneClockMe: document.querySelector("#phoneClockMe"),
   phoneClockOpp: document.querySelector("#phoneClockOpp"),
   phoneClockLabel: document.querySelector("#phoneClockLabel"),
@@ -164,10 +165,13 @@ function renderPhone(snap) {
     const iAmInDuel = mine != null && (d.challengerId === mine || d.defenderId === mine);
 
     // Photo (cached: host omits image when unchanged)
-    if (d.image) { state.lastImage = d.image; }
+    if (d.image) state.lastImage = d.image;
+    else if (!d.imageUnchanged) state.lastImage = "";
     const img = d.image || state.lastImage;
-    ui.duelPhoto.innerHTML = img ? `<img src="${img}" alt="">` : "?";
+    ui.duelPhoto.hidden = !img;
+    ui.duelPhoto.innerHTML = img ? `<img src="${img}" alt="Question image">` : "";
     ui.duelCat.textContent = d.category;
+    ui.duelPrompt.textContent = d.prompt || d.category || "Question";
 
     // Clocks — show mine vs opponent if I'm in the duel, else challenger vs defender
     if (iAmInDuel) {

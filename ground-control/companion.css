@@ -1,0 +1,298 @@
+:root {
+  --bg: #081018;
+  --panel: rgba(14, 25, 37, 0.92);
+  --line: rgba(161, 219, 234, 0.22);
+  --text: #f7fbff;
+  --muted: #93a9b9;
+  --gold: #f5bd36;
+  --good: #31c879;
+  --bad: #f25656;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body.phone-body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 50% 12%, rgba(51, 147, 211, 0.22), transparent 40%),
+    radial-gradient(circle at 18% 80%, rgba(245, 189, 54, 0.10), transparent 36%),
+    linear-gradient(160deg, #05090e 0%, var(--bg) 50%, #061722 100%);
+  font-family: Inter, system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.phone-shell {
+  display: grid;
+  gap: 18px;
+  padding: 24px clamp(16px, 5vw, 32px);
+  max-width: 520px;
+  margin: 0 auto;
+  min-height: 100vh;
+}
+
+.phone-brand {
+  display: grid;
+  gap: 4px;
+  padding-top: 8px;
+}
+
+.brand-kicker {
+  color: var(--gold);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.phone-brand h1 {
+  margin: 0;
+  font-family: "Barlow Condensed", Inter, sans-serif;
+  font-size: 2.4rem;
+  line-height: 0.9;
+  text-transform: uppercase;
+}
+
+.phone-card {
+  display: grid;
+  gap: 14px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.42);
+}
+
+.phone-field {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.phone-field input {
+  min-height: 52px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0 14px;
+  font-family: inherit;
+  font-size: 1.2rem;
+  color: var(--text);
+  background: rgba(3, 10, 16, 0.85);
+  outline: none;
+}
+
+.phone-field input:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(245, 189, 54, 0.18);
+}
+
+#codeInput {
+  text-align: center;
+  letter-spacing: 0.4em;
+  font-family: "Barlow Condensed", Inter, sans-serif;
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.phone-primary {
+  min-height: 54px;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ffe082, var(--gold));
+  color: #1a1202;
+  font-family: inherit;
+  font-size: 1.05rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  box-shadow: 0 12px 30px rgba(245, 189, 54, 0.28);
+}
+
+.phone-ghost {
+  margin-top: 6px;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 700;
+}
+
+.phone-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.phone-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.phone-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--muted);
+  box-shadow: 0 0 12px currentColor;
+}
+
+.phone-dot.is-pending { background: var(--gold); color: var(--gold); animation: pulse 1.2s ease-in-out infinite; }
+.phone-dot.is-good { background: var(--good); color: var(--good); }
+.phone-dot.is-bad { background: var(--bad); color: var(--bad); }
+
+.phone-status strong {
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.phone-name {
+  margin: 0;
+  color: var(--text);
+  font-family: "Barlow Condensed", Inter, sans-serif;
+  font-size: 1.6rem;
+  text-transform: uppercase;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ===== Seat + live play ===== */
+.phone-seat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.phone-seat-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  box-shadow: 0 0 14px currentColor;
+}
+
+.phone-play {
+  gap: 16px;
+}
+
+.phone-turn-banner {
+  text-align: center;
+  font-family: "Barlow Condensed", Inter, sans-serif;
+  font-size: 1.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  padding: 8px;
+  border-radius: 10px;
+  background: rgba(3, 10, 16, 0.5);
+}
+
+.phone-turn-banner.is-you {
+  color: #1a1202;
+  background: linear-gradient(180deg, #ffe082, var(--gold));
+  box-shadow: 0 8px 24px rgba(245, 189, 54, 0.3);
+}
+
+.phone-targets {
+  display: grid;
+  gap: 10px;
+}
+
+.phone-target {
+  min-height: 64px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(8, 20, 30, 0.9);
+  color: var(--text);
+  font-family: "Barlow Condensed", Inter, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.phone-target:active {
+  background: var(--gold);
+  color: #1a1202;
+}
+
+.phone-duel-photo {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 12px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 50% 40%, rgba(40, 74, 108, 0.5), rgba(4, 10, 16, 0.9));
+  font-size: 4rem;
+  font-weight: 900;
+  color: #cfe6f5;
+}
+
+.phone-duel-photo img { width: 100%; height: 100%; object-fit: contain; }
+
+.phone-duel-cat {
+  text-align: center;
+  font-family: "Barlow Condensed", Inter, sans-serif;
+  font-size: 1.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.phone-clocks {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.phone-clock {
+  font-family: "Barlow Condensed", Inter, sans-serif;
+  font-size: 2.4rem;
+  font-weight: 800;
+}
+
+.phone-clock-label { color: var(--muted); font-weight: 800; }
+
+.phone-answer {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
+.phone-answer input {
+  min-height: 56px;
+  border: 1px solid var(--gold);
+  border-radius: 12px;
+  padding: 0 14px;
+  font-size: 1.2rem;
+  color: var(--text);
+  background: rgba(3, 10, 16, 0.85);
+  outline: none;
+}
+
+.phone-answer .phone-primary { min-height: 56px; padding: 0 18px; }
+
+.phone-answer-feedback {
+  margin: 0;
+  min-height: 22px;
+  text-align: center;
+  font-weight: 800;
+}
+.phone-answer-feedback.is-good { color: var(--good); }
+.phone-answer-feedback.is-bad { color: var(--bad); }
+
+/* [hidden] must always win over display:grid/flex on cards & sections */
+[hidden] { display: none !important; }

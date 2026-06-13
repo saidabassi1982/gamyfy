@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Ground Control — Phone</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./companion.css?v=3">
+</head>
+<body class="phone-body">
+  <main class="phone-shell">
+    <header class="phone-brand">
+      <span class="brand-kicker">Ground Control</span>
+      <h1>Phone Companion</h1>
+    </header>
+
+    <section class="phone-card" id="joinCard">
+      <label class="phone-field">
+        <span>Room code</span>
+        <input id="codeInput" maxlength="4" autocapitalize="characters" autocomplete="off" placeholder="ABCD">
+      </label>
+      <label class="phone-field">
+        <span>Your name</span>
+        <input id="nameInput" maxlength="24" autocomplete="given-name" placeholder="Sarah">
+      </label>
+      <button class="phone-primary" type="button" data-action="join">Join Room</button>
+      <p class="phone-hint" id="joinHint">Ask the host for the 4-letter code shown on the TV.</p>
+    </section>
+
+    <section class="phone-card" id="statusCard" hidden>
+      <div class="phone-status">
+        <span class="phone-dot" id="statusDot"></span>
+        <strong id="statusText">Connecting…</strong>
+      </div>
+      <div class="phone-seat" id="phoneSeat" hidden>
+        <span class="phone-seat-dot" id="seatDot"></span>
+        <span class="phone-name" id="phoneName"></span>
+      </div>
+      <p class="phone-hint" id="phoneHint"></p>
+      <button class="phone-ghost" type="button" data-action="leave" hidden id="leaveBtn">Leave room</button>
+    </section>
+
+    <!-- Live play area, driven by host state snapshots -->
+    <section class="phone-card phone-play" id="playCard" hidden>
+      <div class="phone-turn-banner" id="turnBanner">Waiting…</div>
+
+      <!-- Floor: pick a category to attack -->
+      <div class="phone-pick" id="pickArea" hidden>
+        <p class="phone-hint">Your turn — choose a tile to attack:</p>
+        <div class="phone-targets" id="targetButtons"></div>
+      </div>
+
+      <!-- Duel: photo + answer -->
+      <div class="phone-duel" id="duelArea" hidden>
+        <div class="phone-duel-photo" id="duelPhoto">?</div>
+        <div class="phone-duel-cat" id="duelCat"></div>
+        <div class="phone-clocks">
+          <span class="phone-clock" id="phoneClockMe">--</span>
+          <span class="phone-clock-label" id="phoneClockLabel">vs</span>
+          <span class="phone-clock" id="phoneClockOpp">--</span>
+        </div>
+        <div class="phone-answer" id="answerArea" hidden>
+          <input id="answerInput" autocomplete="off" autocapitalize="off" placeholder="Type your answer">
+          <button class="phone-primary" type="button" data-action="submit-answer">Submit</button>
+        </div>
+        <p class="phone-answer-feedback" id="answerFeedback"></p>
+      </div>
+    </section>
+  </main>
+
+  <script src="./assets/vendor/peerjs.min.js"></script>
+  <script src="./config.js?v=1"></script>
+  <script src="./companion.js?v=3"></script>
+</body>
+</html>

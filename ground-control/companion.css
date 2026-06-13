@@ -296,6 +296,11 @@ body.phone-body {
 }
 
 .phone-answer .phone-primary { min-height: 56px; padding: 0 18px; }
+.phone-answer input:disabled,
+.phone-answer .phone-primary:disabled {
+  opacity: 0.48;
+  box-shadow: none;
+}
 
 .phone-answer-feedback {
   margin: 0;
@@ -308,3 +313,58 @@ body.phone-body {
 
 /* [hidden] must always win over display:grid/flex on cards & sections */
 [hidden] { display: none !important; }
+
+/* Keep only a slim identity bar after joining. */
+.phone-body.is-connected .phone-shell {
+  gap: 10px;
+  padding-top: 10px;
+}
+
+.phone-body.is-connected .phone-brand {
+  display: none;
+}
+
+.phone-body.is-connected #statusCard {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+
+.phone-body.is-connected #statusCard .phone-status,
+.phone-body.is-connected #statusCard .phone-hint {
+  display: none;
+}
+
+.phone-body.is-connected #statusCard .phone-seat {
+  min-width: 0;
+  flex: 1;
+}
+
+.phone-body.is-connected #statusCard .phone-seat-dot {
+  width: 12px;
+  height: 12px;
+}
+
+.phone-body.is-connected #statusCard .phone-name {
+  overflow: hidden;
+  font-size: 1.1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phone-body.is-connected #leaveBtn {
+  min-height: 36px;
+  margin: 0;
+  padding: 0 12px;
+  font-size: 0.78rem;
+}
+
+.phone-body.is-connected .phone-play {
+  padding: 14px;
+}
+
+.phone-body.is-connected .phone-turn-banner {
+  font-size: 1.25rem;
+}

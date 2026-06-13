@@ -31,6 +31,7 @@ const ui = {
   phoneClockLabel: document.querySelector("#phoneClockLabel"),
   answerArea: document.querySelector("#answerArea"),
   answerInput: document.querySelector("#answerInput"),
+  answerButton: document.querySelector('[data-action="submit-answer"]'),
   answerFeedback: document.querySelector("#answerFeedback")
 };
 
@@ -48,6 +49,7 @@ const state = {
   myColor: null,
   spectator: false,
   lastImage: "",
+  canAnswer: false,
   cooldownUntil: 0
 };
 
@@ -74,6 +76,7 @@ function showStatusCard() {
 }
 
 function showJoinCard() {
+  document.body.classList.remove("is-connected", "is-spectator");
   ui.statusCard.hidden = true;
   ui.joinCard.hidden = false;
   ui.leaveBtn.hidden = true;
@@ -120,13 +123,15 @@ function handleHostMessage(msg) {
       state.spectator = !!msg.spectator;
       state.myId = msg.spectator ? null : msg.playerId;
       state.myColor = msg.color || "#f5bd36";
+      document.body.classList.add("is-connected");
+      document.body.classList.toggle("is-spectator", state.spectator);
       setStatus(state.spectator ? "Watching (no free seat)" : `In as ${msg.name}`, "is-good");
       ui.phoneSeat.hidden = false;
       ui.seatDot.style.background = state.myColor;
-      ui.phoneName.textContent = msg.name;
+      ui.phoneName.textContent = state.spectator ? "Spectator" : msg.name;
       ui.phoneHint.textContent = state.spectator
-        ? "All player seats are taken — you'll follow along here."
-        : "When the spotlight lands on you, your options appear below.";
+        ? "No Phone Companion seat is available, so answer controls are disabled."
+        : "Connected";
       ui.playCard.hidden = false;
       break;
     case "state":
@@ -143,8 +148,13 @@ function handleHostMessage(msg) {
         // brief cooldown to stop spam
         state.cooldownUntil = Date.now() + 1400;
         ui.answerInput.disabled = true;
+        ui.answerButton.disabled = true;
         ui.answerInput.value = "";
-        setTimeout(() => { ui.answerInput.disabled = false; ui.answerInput.focus(); }, 1400);
+        setTimeout(() => {
+          ui.answerInput.disabled = !state.canAnswer;
+          ui.answerButton.disabled = !state.canAnswer;
+          if (state.canAnswer) ui.answerInput.focus();
+        }, 1400);
       }
       break;
     default:
@@ -163,6 +173,7 @@ function renderPhone(snap) {
     const d = snap.duel;
     const iAmActive = mine != null && d.activePlayerId === mine;
     const iAmInDuel = mine != null && (d.challengerId === mine || d.defenderId === mine);
+    state.canAnswer = iAmActive;
 
     // Photo (cached: host omits image when unchanged)
     if (d.image) state.lastImage = d.image;
@@ -184,23 +195,32 @@ function renderPhone(snap) {
       ui.phoneClockOpp.textContent = fmtClock(d.defenderClock);
     }
 
+    if (iAmInDuel) {
+      ui.answerArea.hidden = false;
+      ui.answerInput.disabled = !iAmActive;
+      ui.answerButton.disabled = !iAmActive;
+      ui.answerInput.placeholder = iAmActive ? "Type your answer" : "Waiting for your turn";
+    } else {
+      ui.answerArea.hidden = true;
+    }
+
     if (iAmActive) {
       ui.turnBanner.textContent = "YOUR TURN — answer!";
       ui.turnBanner.className = "phone-turn-banner is-you";
-      ui.answerArea.hidden = false;
     } else if (iAmInDuel) {
       ui.turnBanner.textContent = `${activeName(snap)} is answering…`;
       ui.turnBanner.className = "phone-turn-banner";
-      ui.answerArea.hidden = true;
     } else {
-      ui.turnBanner.textContent = `${d.challengerName} vs ${d.defenderName}`;
+      ui.turnBanner.textContent = state.spectator
+        ? "Spectator — no answer controls"
+        : `${d.challengerName} vs ${d.defenderName}`;
       ui.turnBanner.className = "phone-turn-banner";
-      ui.answerArea.hidden = true;
     }
     return;
   }
 
   // Floor view
+  state.canAnswer = false;
   ui.duelArea.hidden = true;
   const isMyTurnToPick = snap.stage === "floor" && mine != null && snap.activePlayerId === mine && Array.isArray(snap.targets);
   if (isMyTurnToPick) {
@@ -345,6 +365,7 @@ document.addEventListener("click", (event) => {
 });
 
 function submitAnswer() {
+  if (!state.canAnswer) return;
   if (Date.now() < state.cooldownUntil) return;
   const text = (ui.answerInput.value || "").trim();
   if (!text) return;

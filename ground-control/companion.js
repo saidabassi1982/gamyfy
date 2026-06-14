@@ -95,20 +95,79 @@ async function openPhonePeer() {
 function bindConnection(conn) {
   state.conn = conn;
   conn.on("open", () => {
-    state._peerRetries = 0; // connected — clear the retry counter
+    state._peerRetries = 0;       // connected — clear the retry counter
+    state.shouldReconnect = true; // a real connection: keep it alive across drops
+    requestWakeLock();            // don't let the phone screen sleep mid-game
     setStatus("Connected — joining…", "is-pending");
     conn.send({ type: "join", name: state.name });
   });
   conn.on("data", (msg) => handleHostMessage(msg));
   conn.on("close", () => {
-    setStatus("Disconnected", "is-bad");
-    ui.phoneHint.textContent = "The host closed the connection. You can re-join.";
+    if (state.shouldReconnect) {
+      setStatus("Reconnecting…", "is-pending");
+      ui.phoneHint.textContent = "Lost the host briefly — getting you back in.";
+      scheduleReconnect();
+    } else {
+      setStatus("Disconnected", "is-bad");
+      ui.phoneHint.textContent = "The host closed the connection. You can re-join.";
+    }
   });
   conn.on("error", (err) => {
+    if (state.shouldReconnect) { scheduleReconnect(); return; }
     setStatus("Connection error", "is-bad");
     ui.phoneHint.textContent = err?.message || "Unknown error.";
   });
 }
+
+// ---- Resilience: keep the phone connected the way the Feud buzzer does ----
+// The phone is the fragile end (screen sleep, app backgrounding, walking out of
+// Wi-Fi range). Auto-retry the SAME room code with light backoff instead of
+// dumping the player on a dead screen.
+function scheduleReconnect() {
+  if (!state.shouldReconnect || state.code == null) return;
+  if (state._reconnectTimer) return; // one in flight
+  const delay = Math.min(1200 + (state._reconnectAttempt || 0) * 800, 5000);
+  state._reconnectAttempt = (state._reconnectAttempt || 0) + 1;
+  state._reconnectTimer = setTimeout(() => {
+    state._reconnectTimer = null;
+    reconnectNow();
+  }, delay);
+}
+
+async function reconnectNow() {
+  if (!state.shouldReconnect || state.code == null) return;
+  try { state.conn?.close(); } catch (e) { /* ignore */ }
+  try {
+    if (!state.peer || state.peer.destroyed) state.peer = await openPhonePeer();
+    const conn = state.peer.connect(`${ROOM_PREFIX}-${state.code.toLowerCase()}`, { reliable: true });
+    bindConnection(conn);
+  } catch (e) {
+    scheduleReconnect();
+  }
+}
+
+function reconnectIfNeeded() {
+  if (state.shouldReconnect && (!state.conn || !state.conn.open) && !state._reconnectTimer) {
+    state._reconnectAttempt = 0;
+    reconnectNow();
+  }
+}
+
+// Screen Wake Lock — released by the OS when the tab hides; re-acquired on show.
+async function requestWakeLock() {
+  try {
+    if ("wakeLock" in navigator && !state._wakeLock) {
+      state._wakeLock = await navigator.wakeLock.request("screen");
+      state._wakeLock.addEventListener("release", () => { state._wakeLock = null; });
+    }
+  } catch (e) { /* wake lock optional */ }
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") { requestWakeLock(); reconnectIfNeeded(); }
+});
+window.addEventListener("online", reconnectIfNeeded);
+window.addEventListener("pageshow", reconnectIfNeeded);
 
 function fmtClock(s) {
   if (s == null) return "--";
@@ -121,18 +180,19 @@ function handleHostMessage(msg) {
     case "welcome":
       break;
     case "joined":
+      state._reconnectAttempt = 0; // clean (re)join
       state.spectator = !!msg.spectator;
       state.myId = msg.spectator ? null : msg.playerId;
       state.myColor = msg.color || "#f5bd36";
       document.body.classList.add("is-connected");
       document.body.classList.toggle("is-spectator", state.spectator);
-      setStatus(state.spectator ? "Watching (no available human)" : `In as ${msg.name}`, "is-good");
+      setStatus(state.spectator ? "Watching" : `In as ${msg.name}`, "is-good");
       ui.phoneSeat.hidden = false;
       ui.seatDot.style.background = state.myColor;
       ui.phoneName.textContent = state.spectator ? "Spectator" : msg.name;
       ui.phoneHint.textContent = state.spectator
-        ? "No available human player could be claimed. Bots cannot use phone controls."
-        : "Connected";
+        ? "This game has no open phone seat, so you're watching. To let phones play, the host starts a Local Party Night with phone players."
+        : "You're in — answer here when it's your turn.";
       ui.playCard.hidden = false;
       break;
     case "state":
@@ -323,6 +383,12 @@ async function join() {
   // LAN P2P (PeerJS) path
   try {
     state.peer = await openPhonePeer();
+    // PeerJS drops idle peers from its broker socket — reconnect so the phone
+    // can rejoin the same room without the user re-scanning.
+    state.peer.on("disconnected", () => {
+      try { if (state.shouldReconnect && !state.peer.destroyed) state.peer.reconnect(); }
+      catch (e) { scheduleReconnect(); }
+    });
     state.peer.on("error", (err) => {
       if (err?.type === "peer-unavailable") {
         // The host peer may not be registered with the broker yet (host just
@@ -354,6 +420,10 @@ async function join() {
 }
 
 function leave() {
+  state.shouldReconnect = false; // deliberate exit — stop the auto-reconnect loop
+  if (state._reconnectTimer) { clearTimeout(state._reconnectTimer); state._reconnectTimer = null; }
+  try { state._wakeLock?.release(); } catch (e) { /* ignore */ }
+  state._wakeLock = null;
   try { state.conn?.close(); } catch (e) { /* ignore */ }
   try { state.peer?.destroy(); } catch (e) { /* ignore */ }
   try { state.ws?.close(); } catch (e) { /* ignore */ }

@@ -280,11 +280,12 @@ body.phone-body {
 
 .phone-answer {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
 }
 
 .phone-answer input {
+  min-width: 0;
   min-height: 56px;
   border: 1px solid var(--gold);
   border-radius: 12px;
@@ -318,6 +319,9 @@ body.phone-body {
 .phone-body.is-connected .phone-shell {
   gap: 10px;
   padding-top: 10px;
+  /* The shell is a grid with min-height:100vh; without this the default
+     stretch blows the status row up to ~270px of dead space. Pack to top. */
+  align-content: start;
 }
 
 .phone-body.is-connected .phone-brand {
@@ -368,3 +372,43 @@ body.phone-body {
 .phone-body.is-connected .phone-turn-banner {
   font-size: 1.25rem;
 }
+
+/* ===== Compact play layout — everything on one phone screen ===== */
+/* Slim, one-line identity bar (works for player and spectator alike). */
+.phone-body.is-connected #statusCard {
+  padding: 8px 12px;
+  min-height: 0;
+  box-shadow: none;
+}
+.phone-body.is-connected #statusCard .phone-name { font-size: 1rem; }
+.phone-body.is-spectator #statusCard .phone-seat-dot { background: var(--muted) !important; }
+
+/* Tighten the play card and its rhythm. */
+.phone-body.is-connected .phone-play { gap: 10px; padding: 12px; }
+.phone-body.is-connected .phone-turn-banner {
+  font-size: 0.95rem;
+  padding: 6px 8px;
+  letter-spacing: 0.06em;
+}
+/* Spectator: the banner is a quiet note, never a big empty block. */
+.phone-body.is-spectator .phone-turn-banner:not(.is-you) {
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.82rem;
+  padding: 2px;
+}
+
+/* Cap the photo so image + question + answer all fit above the keyboard. */
+.phone-duel-photo {
+  max-height: 34vh;
+  aspect-ratio: 16 / 10;
+  font-size: 2.4rem;
+}
+.phone-duel-cat { font-size: 1.5rem; }
+.phone-duel-prompt { font-size: 1.02rem; padding: 11px 14px; }
+.phone-clocks { gap: 12px; }
+.phone-clock { font-size: 2rem; }
+
+/* The answer input + button stay together, always reachable. */
+.phone-answer input { min-height: 50px; font-size: 1.1rem; }
+.phone-answer .phone-primary { min-height: 50px; font-size: 0.95rem; padding: 0 16px; }

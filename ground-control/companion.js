@@ -95,6 +95,7 @@ async function openPhonePeer() {
 function bindConnection(conn) {
   state.conn = conn;
   conn.on("open", () => {
+    state._peerRetries = 0; // connected — clear the retry counter
     setStatus("Connected — joining…", "is-pending");
     conn.send({ type: "join", name: state.name });
   });
@@ -324,8 +325,22 @@ async function join() {
     state.peer = await openPhonePeer();
     state.peer.on("error", (err) => {
       if (err?.type === "peer-unavailable") {
-        setStatus("Room not found", "is-bad");
-        ui.phoneHint.textContent = "Check the code with the host and try again.";
+        // The host peer may not be registered with the broker yet (host just
+        // opened the room) or this is a transient broker hiccup. Retry a few
+        // times before giving up, instead of flashing "Room not found".
+        if ((state._peerRetries = (state._peerRetries || 0) + 1) <= 4) {
+          setStatus(`Finding room ${code}… (${state._peerRetries})`, "is-pending");
+          setTimeout(() => {
+            if (!state.peer || state.peer.destroyed) return;
+            try {
+              const retry = state.peer.connect(`${ROOM_PREFIX}-${code.toLowerCase()}`, { reliable: true });
+              bindConnection(retry);
+            } catch (e) { /* will surface on next error */ }
+          }, 1500);
+        } else {
+          setStatus("Room not found", "is-bad");
+          ui.phoneHint.textContent = "Make sure the host opened the Phone Room and the phone is on the same Wi-Fi, then tap Join again.";
+        }
       } else {
         console.warn("peer error:", err);
       }
@@ -379,3 +394,15 @@ ui.answerInput?.addEventListener("keydown", (e) => {
 ui.codeInput.addEventListener("input", () => {
   ui.codeInput.value = ui.codeInput.value.toUpperCase().replace(/[^A-Z2-9]/g, "").slice(0, 4);
 });
+
+// ---- Auto-join on scan ----
+// A buzzer should connect the instant the QR is scanned — no typing, no extra
+// tap (matches the Feud buzzer). When the QR provides ?code=, fill in a name
+// (saved, else a friendly default the player can change later) and join now.
+if (urlCode && /^[A-Z2-9]{4}$/.test(urlCode)) {
+  if (!ui.nameInput.value) {
+    ui.nameInput.value = savedName || ("Player " + Math.floor(10 + Math.random() * 90));
+  }
+  // Defer one tick so every handler/definition above is wired first.
+  setTimeout(() => { try { join(); } catch (e) { console.warn("auto-join failed", e); } }, 50);
+}

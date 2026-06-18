@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>The Betting Grid Phone Companion</title>
+  <script src="assets/vendor/peerjs.min.js"></script>
+  <style>
+    :root {
+      --felt: #08723f;
+      --ink: #071322;
+      --cream: #fff9ec;
+      --blue: #5b8ff5;
+      --red: #e1252b;
+      --green: #48b65a;
+      --gold: #ffd166;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--cream);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.14), transparent 28rem),
+        linear-gradient(135deg, #06331f, var(--felt) 58%, #042817);
+    }
+
+    main {
+      width: min(100%, 32rem);
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom));
+      display: grid;
+      align-items: center;
+    }
+
+    .card {
+      border: 4px solid #06150f;
+      border-radius: 1.25rem;
+      padding: 1rem;
+      background: rgba(255, 249, 236, 0.96);
+      color: var(--ink);
+      box-shadow: 0 1.2rem 0 #06150f, 0 2rem 4rem rgba(0, 0, 0, 0.35);
+    }
+
+    .brand {
+      margin: 0 0 0.35rem;
+      color: var(--blue);
+      font-size: 0.78rem;
+      font-weight: 950;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    h1, h2 {
+      margin: 0;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 12vw, 3.5rem);
+      text-shadow: 0 3px 0 rgba(7, 19, 34, 0.18);
+    }
+
+    h2 {
+      margin-top: 0.8rem;
+      font-size: 1.35rem;
+    }
+
+    .status {
+      margin: 0.9rem 0 1rem;
+      padding: 0.8rem;
+      border: 3px solid #06150f;
+      border-radius: 0.85rem;
+      background: #d7f0ff;
+      font-weight: 900;
+    }
+
+    .round {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin: 1rem 0;
+      padding: 0.75rem;
+      border: 3px solid #06150f;
+      border-radius: 0.85rem;
+      background: #101820;
+      color: white;
+      font-weight: 950;
+    }
+
+    label {
+      display: grid;
+      gap: 0.35rem;
+      margin-top: 0.8rem;
+      font-weight: 950;
+    }
+
+    input, select, button {
+      width: 100%;
+      min-height: 3.25rem;
+      border: 3px solid #06150f;
+      border-radius: 0.8rem;
+      font: inherit;
+      font-weight: 900;
+    }
+
+    input, select {
+      padding: 0 0.9rem;
+      background: white;
+      color: var(--ink);
+    }
+
+    button {
+      margin-top: 0.9rem;
+      background: var(--gold);
+      color: var(--ink);
+      box-shadow: 0 0.35rem 0 #06150f;
+      text-transform: uppercase;
+    }
+
+    button:disabled {
+      filter: grayscale(0.7);
+      opacity: 0.65;
+    }
+
+    .secondary {
+      background: white;
+    }
+
+    .question {
+      margin: 0;
+      padding: 1rem;
+      border: 3px solid #06150f;
+      border-radius: 0.95rem;
+      background: #e9f8ff;
+      font-size: 1.2rem;
+      font-weight: 950;
+      line-height: 1.2;
+    }
+
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="card">
+      <p class="brand">The Betting Grid</p>
+      <h1>Phone Companion</h1>
+      <p id="status" class="status">Enter the room code from the main screen.</p>
+
+      <div id="joinView">
+        <label>
+          Your name
+          <input id="nameInput" autocomplete="nickname" maxlength="22" placeholder="Player name" />
+        </label>
+        <label>
+          Room code
+          <input id="roomInput" autocomplete="off" maxlength="12" placeholder="ABCD" />
+        </label>
+        <button id="joinBtn" type="button">Join Game</button>
+      </div>
+
+      <div id="playView" class="hidden">
+        <div class="round">
+          <span id="roundText">Round 1 / -</span>
+          <span id="phaseText">Connected</span>
+        </div>
+        <p id="questionText" class="question">Waiting for the next question...</p>
+
+        <div id="waitingView">
+          <h2>Watch the board</h2>
+          <p>Controls unlock here when the next action starts.</p>
+        </div>
+
+        <div id="guessView" class="hidden">
+          <label>
+            Private guess
+            <input id="guessInput" type="number" inputmode="numeric" placeholder="Enter your estimate" />
+          </label>
+          <button id="guessBtn" type="button">Submit Guess</button>
+        </div>
+
+        <div id="betView" class="hidden">
+          <label>
+            Chip 1 target
+            <select id="targetA"></select>
+          </label>
+          <select id="valueA"></select>
+          <label>
+            Chip 2 target
+            <select id="targetB"></select>
+          </label>
+          <select id="valueB"></select>
+          <button id="betBtn" type="button">Submit Wager</button>
+        </div>
+
+        <button class="secondary" id="reconnectBtn" type="button">Reconnect</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const ROOM_PREFIX = 'btgd';
+    const BET_VALUES = Array.from({ length: 50 }, (_, index) => (index + 1) * 100);
+    const params = new URLSearchParams(window.location.search);
+    const els = {
+      status: document.getElementById('status'),
+      joinView: document.getElementById('joinView'),
+      playView: document.getElementById('playView'),
+      nameInput: document.getElementById('nameInput'),
+      roomInput: document.getElementById('roomInput'),
+      joinBtn: document.getElementById('joinBtn'),
+      roundText: document.getElementById('roundText'),
+      phaseText: document.getElementById('phaseText'),
+      questionText: document.getElementById('questionText'),
+      waitingView: document.getElementById('waitingView'),
+      guessView: document.getElementById('guessView'),
+      betView: document.getElementById('betView'),
+      guessInput: document.getElementById('guessInput'),
+      guessBtn: document.getElementById('guessBtn'),
+      targetA: document.getElementById('targetA'),
+      targetB: document.getElementById('targetB'),
+      valueA: document.getElementById('valueA'),
+      valueB: document.getElementById('valueB'),
+      betBtn: document.getElementById('betBtn'),
+      reconnectBtn: document.getElementById('reconnectBtn')
+    };
+
+    let peer = null;
+    let conn = null;
+    let retryTimer = null;
+    let retries = 0;
+    let activeRoom = (params.get('code') || params.get('room') || '').trim().toUpperCase();
+
+    els.roomInput.value = activeRoom;
+    [els.valueA, els.valueB].forEach(select => {
+      select.innerHTML = BET_VALUES.map(value => `<option value="${value}">$${value.toLocaleString()}</option>`).join('');
+    });
+
+    function setStatus(text) {
+      els.status.textContent = text;
+    }
+
+    function fullRoomId(code) {
+      return code.length === 4 ? `${ROOM_PREFIX}-${code.toLowerCase()}` : code;
+    }
+
+    function vibrate(pattern) {
+      if (navigator.vibrate) navigator.vibrate(pattern);
+    }
+
+    function show(view) {
+      els.waitingView.classList.toggle('hidden', view !== 'waiting');
+      els.guessView.classList.toggle('hidden', view !== 'guess');
+      els.betView.classList.toggle('hidden', view !== 'bet');
+    }
+
+    function fillTargets(targets) {
+      const options = ['<option value="">Choose a grid card</option>'].concat(
+        (targets || []).map(target => `<option value="${target.id}">${target.label} (${target.payout} to 1)</option>`)
+      ).join('');
+      els.targetA.innerHTML = options;
+      els.targetB.innerHTML = options.replace('Choose a grid card', 'Optional second chip');
+    }
+
+    function applyState(state) {
+      els.roundText.textContent = `Round ${state.round || 1} / ${state.roundCount || '-'}`;
+      els.phaseText.textContent = state.phase === 'guesses'
+        ? 'Question Phase'
+        : state.phase === 'betting'
+          ? 'Betting Phase'
+          : state.phase === 'reveal'
+            ? 'Answer Phase'
+            : state.phase === 'final'
+              ? 'Winner Phase'
+              : 'Connected';
+      els.questionText.textContent = state.question || 'Waiting for the next question...';
+
+      if (state.phase === 'guesses') {
+        show('guess');
+        setTimeout(() => els.guessInput.focus(), 80);
+      } else if (state.phase === 'betting') {
+        fillTargets(state.targets);
+        show('bet');
+        vibrate([45, 35, 45]);
+      } else {
+        show('waiting');
+      }
+    }
+
+    function scheduleReconnect() {
+      clearTimeout(retryTimer);
+      retries += 1;
+      if (retries > 10) {
+        setStatus('Could not reach the table. Tap Reconnect.');
+        return;
+      }
+      const delay = Math.min(1000 * Math.pow(1.45, retries - 1), 6000);
+      setStatus(`Reconnecting (${retries})...`);
+      retryTimer = setTimeout(connect, delay);
+    }
+
+    function connect() {
+      activeRoom = (els.roomInput.value || activeRoom).trim().toUpperCase();
+      if (!activeRoom) {
+        setStatus('Enter the room code from the main screen.');
+        return;
+      }
+      if (typeof Peer === 'undefined') {
+        setStatus('PeerJS did not load. Check internet connection.');
+        return;
+      }
+
+      clearTimeout(retryTimer);
+      setStatus(retries ? `Reconnecting to ${activeRoom}...` : `Connecting to ${activeRoom}...`);
+      try { if (peer) peer.destroy(); } catch (err) {}
+
+      peer = new Peer({ debug: 0 });
+      peer.on('open', () => {
+        conn = peer.connect(fullRoomId(activeRoom), { reliable: true });
+        conn.on('open', () => {
+          retries = 0;
+          els.joinView.classList.add('hidden');
+          els.playView.classList.remove('hidden');
+          setStatus('Connected. Waiting for the round.');
+          conn.send({ type: 'join', name: els.nameInput.value.trim() || 'Phone Player' });
+        });
+        conn.on('data', data => {
+          if (!data || typeof data !== 'object') return;
+          if (data.type === 'ack') setStatus('Connected to table.');
+          if (data.type === 'state') applyState(data);
+        });
+        conn.on('close', scheduleReconnect);
+        conn.on('error', scheduleReconnect);
+      });
+      peer.on('disconnected', () => {
+        try { peer.reconnect(); } catch (err) { scheduleReconnect(); }
+      });
+      peer.on('error', scheduleReconnect);
+    }
+
+    function submitGuess() {
+      if (!conn || !conn.open) return scheduleReconnect();
+      conn.send({ type: 'guess', value: els.guessInput.value });
+      setStatus('Guess submitted.');
+      vibrate(35);
+    }
+
+    function submitBet() {
+      if (!conn || !conn.open) return scheduleReconnect();
+      if (els.targetA.value) conn.send({ type: 'bet', tokenIndex: 0, targetId: els.targetA.value, value: Number(els.valueA.value || 100) });
+      if (els.targetB.value) conn.send({ type: 'bet', tokenIndex: 1, targetId: els.targetB.value, value: Number(els.valueB.value || 100) });
+      setStatus('Wager submitted.');
+      vibrate(35);
+    }
+
+    els.joinBtn.addEventListener('click', connect);
+    els.reconnectBtn.addEventListener('click', () => {
+      retries = 0;
+      connect();
+    });
+    els.guessBtn.addEventListener('click', submitGuess);
+    els.guessInput.addEventListener('keydown', event => {
+      if (event.key === 'Enter') submitGuess();
+    });
+    els.betBtn.addEventListener('click', submitBet);
+    window.addEventListener('online', () => {
+      if (!conn || !conn.open) scheduleReconnect();
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && (!conn || !conn.open)) scheduleReconnect();
+    });
+
+    if (activeRoom) connect();
+  </script>
+</body>
+</html>

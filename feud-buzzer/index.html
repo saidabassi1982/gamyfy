@@ -236,7 +236,26 @@ function startConnect() {
 
   setStatus(retries > 0 ? `Reconnecting (${retries})...` : 'Connecting...', 'connecting');
   try { if (peer) peer.destroy(); } catch (err) {}
-  peer = new Peer({ debug: 0 });
+  /* Same relay set the host uses. Without TURN a phone can only reach the host over
+     a direct connection, which guest Wi-Fi with client isolation and mobile data
+     routinely block. TURN credentials only - never the Metered secret key. */
+  var BUZZER_RTC = { iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' },
+    { urls: 'stun:stun.relay.metered.ca:80' },
+    { urls: 'turn:global.relay.metered.ca:80',
+      username: 'ba88079176616565ef57f408', credential: '2sorAbF4hI8eMjGO' },
+    { urls: 'turn:global.relay.metered.ca:80?transport=tcp',
+      username: 'ba88079176616565ef57f408', credential: '2sorAbF4hI8eMjGO' },
+    { urls: 'turn:global.relay.metered.ca:443',
+      username: 'ba88079176616565ef57f408', credential: '2sorAbF4hI8eMjGO' },
+    { urls: 'turns:global.relay.metered.ca:443?transport=tcp',
+      username: 'ba88079176616565ef57f408', credential: '2sorAbF4hI8eMjGO' },
+    { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'],
+      username: 'peerjs', credential: 'peerjsp' }
+  ] };
+  peer = new Peer({ debug: 0, config: BUZZER_RTC });
   peer.on('open', () => {
     conn = peer.connect('feud-' + activeRoom, { reliable: true });
     conn.on('open', () => {

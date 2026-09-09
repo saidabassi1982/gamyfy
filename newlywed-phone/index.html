@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <meta name="gamyfy-companion-version" content="newlywed-1.0">
+    <meta name="gamyfy-companion-version" content="newlywed-2.0">
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
     <title>The Newlywed Game - Your Phone</title>
     <style>
@@ -61,12 +61,16 @@
       .hidden { display: none !important; }
       .dots::after { content: ''; animation: dots 1.3s steps(4, end) infinite; }
       @keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+      .note { font-size:14px; line-height:1.6; }
+      #qNote { padding:12px;border-radius:12px;background:#f2c66b12;color:#ffe0a5; }
+      button:focus-visible, input:focus-visible, label:focus-visible { outline:3px solid #fff;outline-offset:4px; }
+      @media(prefers-reduced-motion:reduce) { *,*::after {animation:none!important;transition:none!important;} }
     </style>
   </head>
   <body>
     <main>
       <span class="badge" id="badge">YOU</span>
-      <p class="status" id="status">Connecting<span class="dots"></span></p>
+      <p class="status" id="status" role="status" aria-live="polite">Connecting<span class="dots"></span></p>
 
       <section id="noLinkCard" class="card hidden">
         <p class="cat">NOTHING TO JOIN YET</p>
@@ -111,7 +115,7 @@
       </section>
 
       <section id="answerCard" class="hidden">
-        <input type="text" id="answerInput" maxlength="60" autocomplete="off" autocapitalize="sentences"
+        <input type="text" id="answerInput" aria-label="Your private answer" maxlength="60" autocomplete="off" autocapitalize="sentences"
                enterkeyhint="done" placeholder="Keep it short">
         <p class="counter" id="counter">A word or two matches best</p>
         <button id="lockBtn" style="margin-top:10px">Lock it in</button>
@@ -176,7 +180,7 @@
 
       let peer = null, conn = null, started = false, audio = null;
       let retries = 0, retryTimer = null, wakeLock = null;
-      let locked = false, canChange = true;
+      let locked = false, canChange = true, questionId = null, paused = false;
 
       function tone(frequency, duration, type = 'sine') {
         try {
@@ -208,7 +212,10 @@
       function handle(message) {
         if (!message || typeof message !== 'object') return;
 
+        if(message.type === 'replaced') { started=false;clearTimeout(retryTimer);peer?.destroy();only('waitCard');$('#status').textContent='Another phone joined your place. Scan your own code to rejoin.';return; }
+        if(message.type === 'waiting') { only('waitCard');$('#waitCard').innerHTML='<strong>Your turn is coming</strong><span>Keep your answer secret.</span>';$('#status').textContent=message.text;return; }
         if (message.type === 'joined') {
+          $('#waitCard').innerHTML='<strong>Ready for your next moment</strong><span>Keep this page open and your answer private.</span>';
           $('#status').textContent = 'Connected. Waiting for the host.';
           only('waitCard', 'photoCard');
           paintPhoto();
@@ -216,17 +223,22 @@
         }
 
         if (message.type === 'question') {
+          questionId = message.questionId; paused=Boolean(message.paused);
           locked = Boolean(message.locked);
           canChange = message.canChange !== false;
           $('#qCat').textContent = message.category || '';
           $('#qText').textContent = message.text || '';
           $('#qNote').textContent = message.mode === 'predict'
-            ? `What will ${partnerName} say? You are guessing them.`
+            ? (message.role === 'self' ? 'ABOUT YOU · Answer honestly. Your partner predicts your answer.' : `PREDICTION · What will ${message.subject || partnerName} answer?`)
             : `You both answer this. See if you agree.`;
-          $('#answerInput').value = message.answer || '';
+          if(message.answer || locked || $('#answerInput').dataset.question !== String(questionId)) $('#answerInput').value = message.answer || '';
+          $('#answerInput').dataset.question=String(questionId);
+          $('#answerInput').disabled=paused;$('#lockBtn').disabled=paused;
+          if(message.spectator) {only('waitCard');$('#status').textContent='Watch the tiebreaker on the big screen.';return;}
           updateCounter();
           if (locked) showLocked(message.answer || '');
           else { only('questionCard', 'answerCard'); $('#status').textContent = 'Type your answer, then lock it in.'; }
+          if(paused) $('#status').textContent='Paused by the host. Your answer stays here.';
           tone(660, .09);
         }
 
@@ -401,7 +413,7 @@
         if (started) return;
         if (!room || !couple) { $('#status').textContent = 'This link is incomplete. Scan your QR code again.'; return; }
         started = true;
-        try { localStorage.setItem('newlywed-' + room, JSON.stringify({ couple, slot, name: myName })); } catch (err) {}
+        try { localStorage.setItem('newlywed-' + room + '-' + couple + '-' + slot, JSON.stringify({ couple, slot, name: myName })); } catch (err) {}
         requestWakeLock();
         tone(520, .07);
         only('waitCard');
@@ -414,19 +426,20 @@
       $('#answerInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); lockIn(); } });
       $('#lockBtn').onclick = lockIn;
       $('#changeBtn').onclick = () => {
-        if (!canChange || !conn?.open) return;
+        if (paused || !canChange || !conn?.open) return;
         locked = false;
-        conn.send({ type: 'unlock' });
+        conn.send({ type: 'unlock', questionId });
         only('questionCard', 'answerCard');
         $('#status').textContent = 'Change your answer, then lock it in again.';
         $('#answerInput').focus();
       };
 
       function lockIn() {
+        if(paused) return;
         const answer = $('#answerInput').value.trim();
         if (!answer) { $('#status').textContent = 'Type something first.'; return; }
         if (!conn?.open) { $('#status').textContent = 'Not connected yet - hold on.'; return; }
-        conn.send({ type: 'lock', answer });
+        conn.send({ type: 'lock', answer, questionId });
         locked = true;
         showLocked(answer);
         tone(780, .09);
@@ -454,7 +467,7 @@
         $('#badge').hidden = true;
       } else {
         let known = null;
-        try { known = JSON.parse(localStorage.getItem('newlywed-' + room) || 'null'); } catch (err) {}
+        try { known = JSON.parse(localStorage.getItem('newlywed-' + room + '-' + couple + '-' + slot) || 'null'); } catch (err) {}
         if (known && known.couple === couple) begin();
         else only('startCard');
       }

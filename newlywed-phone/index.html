@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="gamyfy-companion-version" content="newlywed-1.0">
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <title>The Newlywed Game - Your Phone</title>
+    <style>
+      :root { --me: #f2c66b; --ink: #f7f1ea; --muted: #b9a9bd; --plum: #1a1020; --panel: #2b1b3d; --line: #4a3363; --green: #6ad39a; --red: #ff7a8a; }
+      * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+      body { margin: 0; min-height: 100vh; padding: 20px 18px calc(20px + env(safe-area-inset-bottom)); color: var(--ink);
+             background: radial-gradient(circle at 50% -10%, #4a2a55 0, transparent 55%), var(--plum);
+             font: 16px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif; display: grid; align-content: start; gap: 14px; }
+      main { width: min(520px, 100%); margin: 0 auto; display: grid; gap: 14px; }
+      .badge { justify-self: center; padding: 7px 15px; border-radius: 999px; border: 2px solid var(--me); color: var(--me);
+               font-size: 11px; font-weight: 900; letter-spacing: .16em; }
+      .status { margin: 0; min-height: 22px; text-align: center; color: var(--muted); font-size: 13.5px; }
+      .card { padding: 18px; border-radius: 18px; background: var(--panel); border: 1px solid var(--line); }
+      .cat { margin: 0 0 8px; font-size: 10.5px; font-weight: 900; letter-spacing: .18em; color: var(--me); text-align: center; }
+      .q { margin: 0; font-size: clamp(21px, 6vw, 28px); font-weight: 800; line-height: 1.22; text-align: center; }
+      .note { margin: 10px 0 0; font-size: 12.5px; color: var(--muted); text-align: center; }
+      input[type=text] { width: 100%; padding: 17px 16px; border-radius: 14px; border: 2px solid var(--line);
+                         background: #150c1e; color: var(--ink); font: 700 20px/1.3 inherit; text-align: center; }
+      input[type=text]:focus { outline: 0; border-color: var(--me); }
+      .counter { margin: 7px 0 0; text-align: center; font-size: 11.5px; color: var(--muted); font-weight: 700; letter-spacing: .06em; }
+      .counter.long { color: var(--me); }
+      button { width: 100%; border: 0; border-radius: 15px; padding: 19px; font: 900 18px/1 inherit; cursor: pointer;
+               letter-spacing: .05em; color: #26160a; background: var(--me); transition: transform .12s, filter .12s; }
+      button:active:not(:disabled) { transform: scale(.975); }
+      button:disabled { opacity: .45; }
+      button.ghost { background: #ffffff12; color: var(--ink); border: 1px solid var(--line); font-size: 15px; padding: 15px; }
+      .locked-box { display: grid; gap: 6px; padding: 20px; border-radius: 18px; text-align: center;
+                    border: 2px solid var(--green); background: #6ad39a12; }
+      .locked-box span { font-size: 10.5px; font-weight: 900; letter-spacing: .16em; color: var(--green); }
+      .locked-box strong { font-size: clamp(22px, 6.5vw, 30px); font-weight: 800; word-break: break-word; }
+      /* The reveal turns the phone into the card you hold up. */
+      .reveal-box { display: grid; gap: 10px; align-content: center; min-height: 46vh; padding: 24px; border-radius: 22px;
+                    text-align: center; border: 3px solid var(--me); background: #f2c66b14; animation: pop .32s ease-out; }
+      .reveal-box span { font-size: 11px; font-weight: 900; letter-spacing: .2em; color: var(--me); }
+      .reveal-box strong { font-size: clamp(30px, 11vw, 62px); font-weight: 800; line-height: 1.08; word-break: break-word; }
+      .reveal-hint { margin: 0; text-align: center; font-size: 13px; font-weight: 800; letter-spacing: .1em; color: var(--me); }
+      @keyframes pop { from { transform: scale(.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+      .result { display: grid; gap: 8px; padding: 22px; border-radius: 18px; text-align: center; border: 3px solid var(--line); }
+      .result.yes { border-color: var(--green); background: #6ad39a14; }
+      .result.no { border-color: var(--red); background: #ff7a8a12; }
+      .result strong { font-size: clamp(28px, 9vw, 44px); font-weight: 800; }
+      .result.yes strong { color: var(--green); }
+      .result.no strong { color: var(--red); }
+      .result small { color: var(--muted); font-size: 13px; }
+      .waiting { display: grid; gap: 8px; padding: 34px 20px; border-radius: 18px; text-align: center;
+                 border: 2px dashed var(--line); color: var(--muted); }
+      .waiting strong { color: var(--ink); font-size: 18px; }
+      .hidden { display: none !important; }
+      .dots::after { content: ''; animation: dots 1.3s steps(4, end) infinite; }
+      @keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <span class="badge" id="badge">YOU</span>
+      <p class="status" id="status">Connecting<span class="dots"></span></p>
+
+      <section id="startCard" class="card hidden">
+        <p class="cat">READY WHEN YOU ARE</p>
+        <p class="q" id="startName">-</p>
+        <p class="note" id="startPartner"></p>
+        <button id="startBtn" style="margin-top:14px">I'm ready</button>
+      </section>
+
+      <section id="waitCard" class="waiting hidden">
+        <strong>Waiting for the next question</strong>
+        <span>Keep this page open. Do not lock your phone.</span>
+      </section>
+
+      <section id="questionCard" class="card hidden">
+        <p class="cat" id="qCat">FIRSTS</p>
+        <h1 class="q" id="qText"></h1>
+        <p class="note" id="qNote"></p>
+      </section>
+
+      <section id="answerCard" class="hidden">
+        <input type="text" id="answerInput" maxlength="60" autocomplete="off" autocapitalize="sentences"
+               enterkeyhint="done" placeholder="Keep it short">
+        <p class="counter" id="counter">A word or two matches best</p>
+        <button id="lockBtn" style="margin-top:10px">Lock it in</button>
+      </section>
+
+      <section id="lockedCard" class="hidden">
+        <div class="locked-box"><span>YOUR ANSWER</span><strong id="lockedAnswer"></strong></div>
+        <p class="status" id="lockedNote"></p>
+        <button class="ghost" id="changeBtn" style="margin-top:8px">Change it</button>
+      </section>
+
+      <section id="revealCard" class="hidden">
+        <div class="reveal-box"><span>YOU SAID</span><strong id="revealAnswer"></strong></div>
+        <p class="reveal-hint">HOLD IT UP</p>
+      </section>
+
+      <section id="resultCard" class="hidden">
+        <div class="result" id="resultBox">
+          <strong id="resultTitle"></strong>
+          <small id="resultDetail"></small>
+        </div>
+      </section>
+    </main>
+
+    <script src="assets/vendor/peerjs.min.js"></script>
+    <script>
+      const query = new URLSearchParams(location.search);
+      const room = query.get('room');
+      const couple = query.get('couple');
+      const slot = query.get('slot') === 'b' ? 'b' : 'a';
+      const myName = (query.get('name') || 'You').slice(0, 24);
+      const partnerName = (query.get('partner') || 'your partner').slice(0, 24);
+      const colour = query.get('colour');
+      const $ = (s) => document.querySelector(s);
+
+      if (colour && /^#[0-9a-fA-F]{3,8}$/.test(colour)) {
+        document.documentElement.style.setProperty('--me', colour);
+      }
+      $('#badge').textContent = myName.toUpperCase();
+      $('#startName').textContent = myName;
+      $('#startPartner').textContent = `Playing with ${partnerName}.`;
+
+      /* Same relay set the host uses. Without TURN a phone can only reach the host
+         over a direct connection, which guest Wi-Fi with client isolation and mobile
+         data routinely block. TURN credentials only - never a secret key. */
+      const NEWLYWED_RTC = { iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun.cloudflare.com:3478' },
+        { urls: 'stun:stun.relay.metered.ca:80' },
+        { urls: 'turn:global.relay.metered.ca:80',
+          username: 'ba88079176616565ef57f408', credential: '2sorAbF4hI8eMjGO' },
+        { urls: 'turn:global.relay.metered.ca:80?transport=tcp',
+          username: 'ba88079176616565ef57f408', credential: '2sorAbF4hI8eMjGO' },
+        { urls: 'turn:global.relay.metered.ca:443',
+          username: 'ba88079176616565ef57f408', credential: '2sorAbF4hI8eMjGO' },
+        { urls: 'turns:global.relay.metered.ca:443?transport=tcp',
+          username: 'ba88079176616565ef57f408', credential: '2sorAbF4hI8eMjGO' },
+        { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'],
+          username: 'peerjs', credential: 'peerjsp' }
+      ] };
+
+      let peer = null, conn = null, started = false, audio = null;
+      let retries = 0, retryTimer = null, wakeLock = null;
+      let locked = false, canChange = true;
+
+      function tone(frequency, duration, type = 'sine') {
+        try {
+          audio ||= new (window.AudioContext || window.webkitAudioContext)();
+          if (audio.state === 'suspended') audio.resume();
+          const osc = audio.createOscillator(), gain = audio.createGain();
+          osc.frequency.value = frequency; osc.type = type;
+          gain.gain.setValueAtTime(.09, audio.currentTime);
+          gain.gain.exponentialRampToValueAtTime(.0001, audio.currentTime + duration);
+          osc.connect(gain).connect(audio.destination);
+          osc.start(); osc.stop(audio.currentTime + duration);
+        } catch (err) {}
+      }
+
+      const cards = ['startCard', 'waitCard', 'questionCard', 'answerCard', 'lockedCard', 'revealCard', 'resultCard'];
+      function only(...visible) {
+        cards.forEach((id) => $('#' + id).classList.toggle('hidden', !visible.includes(id)));
+      }
+
+      async function requestWakeLock() {
+        if (!('wakeLock' in navigator) || wakeLock) return;
+        try {
+          wakeLock = await navigator.wakeLock.request('screen');
+          wakeLock.addEventListener('release', () => { wakeLock = null; });
+        } catch (err) {}
+      }
+
+      /* ----------------------------- messages ----------------------------- */
+      function handle(message) {
+        if (!message || typeof message !== 'object') return;
+
+        if (message.type === 'joined') {
+          $('#status').textContent = `Connected. Waiting for the host${''}`;
+          only('waitCard');
+        }
+
+        if (message.type === 'question') {
+          locked = Boolean(message.locked);
+          canChange = message.canChange !== false;
+          $('#qCat').textContent = message.category || '';
+          $('#qText').textContent = message.text || '';
+          $('#qNote').textContent = message.mode === 'predict'
+            ? `What will ${partnerName} say? You are guessing them.`
+            : `You both answer this. See if you agree.`;
+          $('#answerInput').value = message.answer || '';
+          updateCounter();
+          if (locked) showLocked(message.answer || '');
+          else { only('questionCard', 'answerCard'); $('#status').textContent = 'Type your answer, then lock it in.'; }
+          tone(660, .09);
+        }
+
+        if (message.type === 'lock-state') {
+          locked = Boolean(message.locked);
+          canChange = message.canChange !== false;
+          if (locked) showLocked($('#answerInput').value.trim());
+        }
+
+        if (message.type === 'reveal') {
+          locked = true;
+          $('#revealAnswer').textContent = message.yours || '- no answer -';
+          only('revealCard');
+          $('#status').textContent = 'Hold your phone up.';
+          tone(880, .12); setTimeout(() => tone(1100, .18), 110);
+          navigator.vibrate?.([60, 40, 120]);
+        }
+
+        if (message.type === 'result') {
+          const yes = Boolean(message.match);
+          $('#resultBox').className = 'result ' + (yes ? 'yes' : 'no');
+          $('#resultTitle').textContent = yes ? 'MATCH' : 'NO MATCH';
+          $('#resultDetail').textContent = yes
+            ? `+${message.points} points. You are on ${message.total}.`
+            : `No points this time. You are on ${message.total}.`;
+          only('resultCard');
+          $('#status').textContent = '';
+          if (yes) { tone(880, .1); setTimeout(() => tone(1180, .2), 110); navigator.vibrate?.([70, 40, 70, 40, 160]); }
+          else { tone(200, .22, 'sawtooth'); navigator.vibrate?.([220]); }
+        }
+
+        if (message.type === 'over') {
+          only('waitCard');
+          $('#waitCard').innerHTML = '<strong>That is the end of the game</strong><span>Look at the big screen.</span>';
+          $('#status').textContent = '';
+        }
+      }
+
+      function showLocked(answer) {
+        $('#lockedAnswer').textContent = answer || '-';
+        $('#lockedNote').textContent = canChange
+          ? `Locked in. You can still change it until ${partnerName} locks in.`
+          : `${partnerName} has locked in too. Waiting for the reveal.`;
+        $('#changeBtn').classList.toggle('hidden', !canChange);
+        only('questionCard', 'lockedCard');
+        $('#status').textContent = '';
+      }
+
+      function updateCounter() {
+        const value = $('#answerInput').value.trim();
+        const words = value ? value.split(/\s+/).length : 0;
+        const counter = $('#counter');
+        // Long answers almost never match. Nudge rather than forbid.
+        if (!value) { counter.textContent = 'A word or two matches best'; counter.classList.remove('long'); }
+        else if (words > 4 || value.length > 26) { counter.textContent = 'That is quite long - shorter answers match more often'; counter.classList.add('long'); }
+        else { counter.textContent = `${words} word${words === 1 ? '' : 's'}`; counter.classList.remove('long'); }
+      }
+
+      /* ---------------------------- connection ---------------------------- */
+      function scheduleReconnect() {
+        if (retryTimer) return;
+        retries += 1;
+        if (retries > 10) {
+          $('#status').textContent = 'Could not reach the host - tap here to try again.';
+          $('#status').style.cursor = 'pointer';
+          $('#status').onclick = () => { retries = 0; $('#status').onclick = null; $('#status').style.cursor = ''; connect(); };
+          return;
+        }
+        const delay = Math.min(1000 * Math.pow(1.5, retries - 1), 6000);
+        retryTimer = setTimeout(() => { retryTimer = null; connect(); }, delay);
+      }
+
+      function connect() {
+        clearTimeout(retryTimer); retryTimer = null;
+        const old = peer; peer = null; conn = null;
+        try { old?.destroy(); } catch (err) {}
+        const mine = peer = new Peer({ debug: 0, config: NEWLYWED_RTC });
+        peer.on('open', () => {
+          if (peer !== mine) return;
+          const link = conn = mine.connect('newlywed-' + room, { reliable: true });
+          conn.on('open', () => {
+            if (peer !== mine || conn !== link) return;
+            clearTimeout(retryTimer); retryTimer = null; retries = 0;
+            conn.send({ type: 'join', couple, slot, name: myName });
+            $('#status').textContent = 'Connected. Waiting for the host.';
+            $('#status').style.cursor = ''; $('#status').onclick = null;
+            if (!$('#questionCard').classList.contains('hidden')) return;
+            only('waitCard');
+          });
+          conn.on('data', (message) => { if (peer === mine && conn === link) handle(message); });
+          conn.on('close', () => {
+            if (peer !== mine || conn !== link) return;
+            $('#status').textContent = 'Lost the host - reconnecting...';
+            scheduleReconnect();
+          });
+          conn.on('error', () => { if (peer === mine) scheduleReconnect(); });
+        });
+        peer.on('disconnected', () => {
+          if (peer !== mine) return;
+          try { peer.reconnect(); } catch (err) { scheduleReconnect(); }
+        });
+        peer.on('error', (err) => {
+          if (peer !== mine) return;
+          const type = err?.type || 'unknown';
+          $('#status').textContent = 'Connection problem (' + type + ') - retrying...';
+          if (['peer-unavailable', 'server-error', 'socket-error', 'socket-closed', 'network', 'network-error'].includes(type)) scheduleReconnect();
+        });
+      }
+
+      function begin() {
+        if (started) return;
+        if (!room || !couple) { $('#status').textContent = 'This link is incomplete. Scan your QR code again.'; return; }
+        started = true;
+        try { localStorage.setItem('newlywed-' + room, JSON.stringify({ couple, slot, name: myName })); } catch (err) {}
+        requestWakeLock();
+        tone(520, .07);
+        only('waitCard');
+        connect();
+      }
+
+      /* ------------------------------- wire ------------------------------- */
+      $('#startBtn').onclick = begin;
+      $('#answerInput').addEventListener('input', updateCounter);
+      $('#answerInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); lockIn(); } });
+      $('#lockBtn').onclick = lockIn;
+      $('#changeBtn').onclick = () => {
+        if (!canChange || !conn?.open) return;
+        locked = false;
+        conn.send({ type: 'unlock' });
+        only('questionCard', 'answerCard');
+        $('#status').textContent = 'Change your answer, then lock it in again.';
+        $('#answerInput').focus();
+      };
+
+      function lockIn() {
+        const answer = $('#answerInput').value.trim();
+        if (!answer) { $('#status').textContent = 'Type something first.'; return; }
+        if (!conn?.open) { $('#status').textContent = 'Not connected yet - hold on.'; return; }
+        conn.send({ type: 'lock', answer });
+        locked = true;
+        showLocked(answer);
+        tone(780, .09);
+        navigator.vibrate?.(30);
+      }
+
+      // A silent signal loss does not fire conn.on('close'), so the phone can sit
+      // there looking fine. conn.open does flip within a few seconds - poll for it.
+      setInterval(() => {
+        if (!started || conn?.open) return;
+        scheduleReconnect();
+      }, 3000);
+      const wake = () => { if (started && (!conn || !conn.open)) { retries = 0; clearTimeout(retryTimer); retryTimer = null; connect(); } requestWakeLock(); };
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) wake(); });
+      window.addEventListener('online', wake);
+      window.addEventListener('pageshow', wake);
+      document.addEventListener('pointerdown', requestWakeLock);
+
+      // Refresh, or leave and come back, and the phone lets itself straight back in.
+      let known = null;
+      try { known = JSON.parse(localStorage.getItem('newlywed-' + room) || 'null'); } catch (err) {}
+      if (known && known.couple === couple) begin();
+      else only('startCard');
+    </script>
+  </body>
+</html>

@@ -50,6 +50,14 @@
       .waiting { display: grid; gap: 8px; padding: 34px 20px; border-radius: 18px; text-align: center;
                  border: 2px dashed var(--line); color: var(--muted); }
       .waiting strong { color: var(--ink); font-size: 18px; }
+      .photo-row { display: flex; align-items: center; gap: 13px; margin-bottom: 10px; }
+      .photo-dot { flex: 0 0 auto; width: 58px; height: 58px; border-radius: 50%; display: grid;
+                   place-items: center; overflow: hidden; border: 2px solid var(--me);
+                   background: #2b1b3d center/cover no-repeat; font-weight: 900; color: var(--me); font-size: 20px; }
+      .photo-dot.has-photo span { display: none; }
+      .photo-copy strong { display: block; font-size: 15px; }
+      .photo-copy small { color: var(--muted); font-size: 12px; line-height: 1.4; }
+      .photo-btn { display: block; text-align: center; }
       .hidden { display: none !important; }
       .dots::after { content: ''; animation: dots 1.3s steps(4, end) infinite; }
       @keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
@@ -82,6 +90,18 @@
       <section id="waitCard" class="waiting hidden">
         <strong>Waiting for the next question</strong>
         <span>Keep this page open. Do not lock your phone.</span>
+      </section>
+
+      <section id="photoCard" class="hidden">
+        <div class="photo-row">
+          <div class="photo-dot" id="photoDot"><span id="photoInitial">?</span></div>
+          <div class="photo-copy">
+            <strong id="photoTitle">Add your photo</strong>
+            <small>It appears beside your answers on the big screen. Optional.</small>
+          </div>
+        </div>
+        <label class="ghost photo-btn" for="photoInput" id="photoLabel">Take a photo</label>
+        <input type="file" id="photoInput" accept="image/*" capture="user" hidden>
       </section>
 
       <section id="questionCard" class="card hidden">
@@ -171,7 +191,7 @@
         } catch (err) {}
       }
 
-      const cards = ['noLinkCard', 'startCard', 'waitCard', 'questionCard', 'answerCard', 'lockedCard', 'revealCard', 'resultCard'];
+      const cards = ['noLinkCard', 'startCard', 'waitCard', 'photoCard', 'questionCard', 'answerCard', 'lockedCard', 'revealCard', 'resultCard'];
       function only(...visible) {
         cards.forEach((id) => $('#' + id).classList.toggle('hidden', !visible.includes(id)));
       }
@@ -189,8 +209,10 @@
         if (!message || typeof message !== 'object') return;
 
         if (message.type === 'joined') {
-          $('#status').textContent = `Connected. Waiting for the host${''}`;
-          only('waitCard');
+          $('#status').textContent = 'Connected. Waiting for the host.';
+          only('waitCard', 'photoCard');
+          paintPhoto();
+          sendPhoto();          // survives a host refresh or a phone rejoining
         }
 
         if (message.type === 'question') {
@@ -242,6 +264,67 @@
           $('#status').textContent = '';
         }
       }
+
+      /* Photos are taken here rather than hunted for on a laptop: the phone already has
+         a camera and is already connected. Everything is downscaled to a small square
+         before it goes anywhere, so the data channel carries about 20KB, not 4MB, and
+         a square crop means no photo can ever change the size of anything on screen. */
+      const PHOTO_KEY = 'newlywed-photo-' + room + '-' + couple + '-' + slot;
+      let myPhoto = '';
+
+      function paintPhoto() {
+        const dot = $('#photoDot');
+        dot.classList.toggle('has-photo', Boolean(myPhoto));
+        dot.style.backgroundImage = myPhoto ? `url("${myPhoto}")` : '';
+        $('#photoInitial').textContent = (myName[0] || '?').toUpperCase();
+        $('#photoTitle').textContent = myPhoto ? 'Your photo is set' : 'Add your photo';
+        $('#photoLabel').textContent = myPhoto ? 'Change photo' : 'Take a photo';
+      }
+
+      function squareCrop(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = reject;
+          reader.onload = () => {
+            const img = new Image();
+            img.onerror = reject;
+            img.onload = () => {
+              const SIZE = 320;
+              const side = Math.min(img.width, img.height);
+              const canvas = document.createElement('canvas');
+              canvas.width = canvas.height = SIZE;
+              const ctx = canvas.getContext('2d');
+              // Centre crop, so portrait and landscape both fill the circle properly.
+              ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, SIZE, SIZE);
+              resolve(canvas.toDataURL('image/jpeg', 0.78));
+            };
+            img.src = reader.result;
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
+      function sendPhoto() {
+        if (myPhoto && conn?.open) conn.send({ type: 'photo', photo: myPhoto });
+      }
+
+      $('#photoInput').addEventListener('change', async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        $('#photoTitle').textContent = 'Adding...';
+        try {
+          myPhoto = await squareCrop(file);
+          try { localStorage.setItem(PHOTO_KEY, myPhoto); } catch (err) {}
+          paintPhoto();
+          sendPhoto();
+          tone(720, .08);
+        } catch (err) {
+          $('#photoTitle').textContent = 'That image would not load - try another';
+        }
+        e.target.value = '';
+      });
+
+      try { myPhoto = localStorage.getItem(PHOTO_KEY) || ''; } catch (err) {}
 
       function showLocked(answer) {
         $('#lockedAnswer').textContent = answer || '-';

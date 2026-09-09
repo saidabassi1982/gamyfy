@@ -60,6 +60,18 @@
       <span class="badge" id="badge">YOU</span>
       <p class="status" id="status">Connecting<span class="dots"></span></p>
 
+      <section id="noLinkCard" class="card hidden">
+        <p class="cat">NOTHING TO JOIN YET</p>
+        <h1 class="q">This is the phone page</h1>
+        <p class="note">It only opens from a QR code, so there is nothing to show on its own.</p>
+        <p class="note" style="margin-top:14px;text-align:left">
+          <strong style="color:var(--me)">To play:</strong><br>
+          1. Open <strong>index.html</strong> from the game folder on a laptop or TV.<br>
+          2. Enter the couples, then press <strong>Connect the phones</strong>.<br>
+          3. Each person scans their own code with their phone camera.
+        </p>
+      </section>
+
       <section id="startCard" class="card hidden">
         <p class="cat">READY WHEN YOU ARE</p>
         <p class="q" id="startName">-</p>
@@ -159,7 +171,7 @@
         } catch (err) {}
       }
 
-      const cards = ['startCard', 'waitCard', 'questionCard', 'answerCard', 'lockedCard', 'revealCard', 'resultCard'];
+      const cards = ['noLinkCard', 'startCard', 'waitCard', 'questionCard', 'answerCard', 'lockedCard', 'revealCard', 'resultCard'];
       function only(...visible) {
         cards.forEach((id) => $('#' + id).classList.toggle('hidden', !visible.includes(id)));
       }
@@ -351,10 +363,18 @@
       document.addEventListener('pointerdown', requestWakeLock);
 
       // Refresh, or leave and come back, and the phone lets itself straight back in.
-      let known = null;
-      try { known = JSON.parse(localStorage.getItem('newlywed-' + room) || 'null'); } catch (err) {}
-      if (known && known.couple === couple) begin();
-      else only('startCard');
+      if (!room || !couple) {
+        // Somebody opened this page directly. It is a companion, not the game - say so
+        // plainly rather than offering a button that cannot work.
+        only('noLinkCard');
+        $('#status').textContent = '';
+        $('#badge').hidden = true;
+      } else {
+        let known = null;
+        try { known = JSON.parse(localStorage.getItem('newlywed-' + room) || 'null'); } catch (err) {}
+        if (known && known.couple === couple) begin();
+        else only('startCard');
+      }
     </script>
   </body>
 </html>

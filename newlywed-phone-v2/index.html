@@ -213,7 +213,7 @@
       function showVersionMismatch() {
         started=false;clearTimeout(retryTimer);retryTimer=null;
         only('waitCard');
-        $('#waitCard').innerHTML='<strong>This phone page needs an update</strong><span>Reload this page. If this message returns, scan the host’s current QR code.</span>';
+        $('#waitCard').innerHTML='<strong>This phone page needs an update</strong><span>Reload this page. If this message returns, scan the host\u2019s current QR code.</span>';
         $('#status').textContent='Your place has not joined yet. The host can enter your answers if needed.';
       }
       function handle(message) {
@@ -242,7 +242,7 @@
           $('#qCat').textContent = message.category || '';
           $('#qText').textContent = message.text || '';
           $('#qNote').textContent = message.mode === 'predict'
-            ? (message.role === 'self' ? 'ABOUT YOU · Answer honestly. Your partner predicts your answer.' : `PREDICTION · What will ${message.subject || partnerName} answer?`)
+            ? (message.role === 'self' ? 'ABOUT YOU \u00b7 Answer honestly. Your partner predicts your answer.' : `PREDICTION \u00b7 What will ${message.subject || partnerName} answer?`)
             : `You both answer this. See if you agree.`;
           if(message.answer || locked || $('#answerInput').dataset.question !== String(questionId)) $('#answerInput').value = message.answer || '';
           $('#answerInput').dataset.question=String(questionId);

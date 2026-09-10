@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <meta name="gamyfy-companion-version" content="newlywed-2.0">
+    <meta name="gamyfy-companion-version" content="newlywed-2.1">
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
     <title>The Newlywed Game - Your Phone</title>
     <style>
@@ -110,7 +110,7 @@
 
       <section id="questionCard" class="card hidden">
         <p class="cat" id="qCat">FIRSTS</p>
-        <h1 class="q" id="qText"></h1>
+        <h1 class="q" id="qText" aria-live="polite" aria-atomic="true"></h1>
         <p class="note" id="qNote"></p>
       </section>
 
@@ -143,6 +143,7 @@
     <script src="../newlywed-phone/assets/vendor/peerjs.min.js"></script>
     <script>
       const query = new URLSearchParams(location.search);
+      const COMPANION_VERSION = document.querySelector('meta[name="gamyfy-companion-version"]').content;
       const room = query.get('room');
       const couple = query.get('couple');
       const slot = query.get('slot') === 'b' ? 'b' : 'a';
@@ -209,8 +210,20 @@
       }
 
       /* ----------------------------- messages ----------------------------- */
+      function showVersionMismatch() {
+        started=false;clearTimeout(retryTimer);retryTimer=null;
+        only('waitCard');
+        $('#waitCard').innerHTML='<strong>This phone page needs an update</strong><span>Reload this page. If this message returns, scan the host’s current QR code.</span>';
+        $('#status').textContent='Your place has not joined yet. The host can enter your answers if needed.';
+      }
       function handle(message) {
         if (!message || typeof message !== 'object') return;
+        if(message.type==='hello') {
+          conn?.send({type:'version',version:COMPANION_VERSION});
+          if(message.expectedVersion!==COMPANION_VERSION)showVersionMismatch();
+          return;
+        }
+        if(message.type==='version-mismatch') {showVersionMismatch();return;}
 
         if(message.type === 'replaced') { started=false;clearTimeout(retryTimer);peer?.destroy();only('waitCard');$('#status').textContent='Another phone joined your place. Scan your own code to rejoin.';return; }
         if(message.type === 'waiting') { only('waitCard');$('#waitCard').innerHTML='<strong>Your turn is coming</strong><span>Keep your answer secret.</span>';$('#status').textContent=message.text;return; }
@@ -383,7 +396,7 @@
           conn.on('open', () => {
             if (peer !== mine || conn !== link) return;
             clearTimeout(retryTimer); retryTimer = null; retries = 0;
-            conn.send({ type: 'join', couple, slot, name: myName });
+            conn.send({ type: 'join', couple, slot, name: myName, version:COMPANION_VERSION });
             $('#status').textContent = 'Connected. Waiting for the host.';
             $('#status').style.cursor = ''; $('#status').onclick = null;
             if (!$('#questionCard').classList.contains('hidden')) return;

@@ -75,6 +75,8 @@ body{display:flex;flex-direction:column;padding:20px;gap:14px}
 .type-submit{margin-top:2px}
 .reconnect-btn{border:none;border-radius:18px;padding:16px;background:#ffdf3d;color:#1a1455;font-size:18px;font-weight:900;letter-spacing:1px}
 .hidden{display:none!important}
+input{-webkit-user-select:text;user-select:text}
+.type-form{display:contents}
 </style>
 </head>
 <body>
@@ -87,9 +89,11 @@ body{display:flex;flex-direction:column;padding:20px;gap:14px}
 <div class="phase" id="phase">&nbsp;</div>
 <button class="btn-buzz disarmed" id="buzz" disabled>Waiting...</button>
 <div class="type-panel hidden" id="typePanel">
+  <form class="type-form" id="typeForm" autocomplete="off" novalidate>
   <div class="type-label">Type your answer</div>
   <input class="type-input" id="typeInput" type="text" autocomplete="off" autocapitalize="characters" enterkeyhint="send" placeholder="Type the answer..." />
-  <button class="final-submit type-submit" id="typeSubmit" type="button">Submit Answer</button>
+  <button class="final-submit type-submit" id="typeSubmit" type="submit">Submit Answer</button>
+  </form>
 </div>
 <button class="reconnect-btn hidden" id="reconnectBtn" type="button">Reconnect</button>
 <div class="choice-panel hidden" id="choicePanel">
@@ -103,12 +107,14 @@ body{display:flex;flex-direction:column;padding:20px;gap:14px}
     <div class="final-title" id="finalTitle">Waiting for host</div>
     <div class="final-copy" id="finalCopy">Keep this phone open.</div>
     <div class="final-clue hidden" id="finalClue"></div>
-    <input class="final-input hidden" id="finalInput" />
-    <button class="final-submit hidden" id="finalSubmit">Submit</button>
+    <form class="type-form" id="finalForm" autocomplete="off" novalidate>
+    <input class="final-input hidden" id="finalInput" enterkeyhint="send" />
+    <button class="final-submit hidden" id="finalSubmit" type="submit">Submit</button>
+    </form>
     <div class="locked-badge hidden" id="finalLocked">Locked</div>
   </div>
 </div>
-<div class="foot">Keep this page open. Tap when armed. &middot; buzzer v2026.10.12</div>
+<div class="foot">Keep this page open. Tap when armed. &middot; buzzer v2026.10.13</div>
 
 <script>
 const params=new URLSearchParams(location.search);
@@ -139,6 +145,20 @@ const choicePanel=document.getElementById('choicePanel');
 const typeSubmit=document.getElementById('typeSubmit');
 const reconnectBtn=document.getElementById('reconnectBtn');
 let replaced=false;
+function onTap(el,fn){
+  let last=0;
+  const run=e=>{
+    if(e&&e.cancelable)e.preventDefault(); // also stops the form's own submit: fn() below does the work once
+    const now=Date.now();if(now-last<600)return;last=now;
+    if(el.disabled)return;
+    fn();
+  };
+  el.addEventListener('touchend',run,{passive:false});
+  el.addEventListener('pointerup',e=>{if(e.pointerType!=='mouse')run(e);});
+  el.addEventListener('click',run);
+}
+// iOS leaves the page scrolled (and tap targets offset) after the keyboard closes
+function resetScroll(){setTimeout(()=>{try{window.scrollTo(0,0);document.body.scrollTop=0;}catch(e){}},60);}
 
 let connected=false;
 let lastArmed=false;
@@ -164,7 +184,11 @@ function resetFinalControls(){
   finalSubmit.disabled=false;
 }
 function applyFinalState(s){
+  const prevPhase=lastFinalState.phase;
+  const typed=finalInput.value;
   lastFinalState=Object.assign(lastFinalState,s);
+  // a repeated update for the same phase must not wipe what the player is typing
+  setTimeout(()=>{if(lastFinalState.phase===prevPhase&&typed&&!finalInput.classList.contains('hidden')&&!finalInput.value)finalInput.value=typed;},0);
   const phase=lastFinalState.phase||'board';
   const inFinal=phase.startsWith('final-');
   showFinalPhoneScreen(inFinal);
@@ -291,7 +315,10 @@ else{
     });
     conn.on('data',data=>{
       if(!data||typeof data!=='object')return;
-      if(data.type==='ack')return;
+      lastHeard=Date.now();everConnected=true;
+      if(!replaced&&!connected){connected=true;setStatus('Connected','connected');reconnectBtn.classList.add('hidden');}
+      if(data.type==='pong')return;
+      if(data.type==='ack'){connected=true;setStatus('Connected','connected');reconnectBtn.classList.add('hidden');try{sessionStorage.removeItem('buzzRetries');}catch(e){}return;}
       if(data.type==='replaced'){
         replaced=true;
         setStatus('Another phone took over','error');
@@ -320,10 +347,33 @@ else{
   });
   peer.on('error',err=>{
     if(err?.type==='peer-unavailable'){connectionLost('Room not found - check the QR code',true);return;}
+    if(conn&&conn.open&&['network','server-error','socket-error','socket-closed','disconnected'].includes(err?.type)){
+      // only the matchmaking server dropped (common after Android sleeps the tab): re-register and verify the link
+      try{if(!peer.destroyed&&peer.disconnected)peer.reconnect();}catch(e){}
+      if(document.visibilityState==='visible')checkLink();else needsCheck=true;
+      return;
+    }
     connectionLost('Connection lost ('+(err?.type||'unknown')+')');
   });
   // losing the signalling server alone doesn't break the link to the host: just re-register
   peer.on('disconnected',()=>{try{if(!peer.destroyed)peer.reconnect();}catch(e){}});
+  let lastHeard=Date.now(),needsCheck=false,checking=false;
+  // ask the host to answer: new hosts reply to ping, older hosts reply to hello with ack
+  function checkLink(){
+    if(checking||replaced)return;
+    if(!conn||!conn.open||peer.destroyed){connectionLost('Reconnecting...');return;}
+    checking=true;needsCheck=false;
+    const asked=Date.now();
+    try{conn.send({type:'ping',team:myTeam});}catch(e){}
+    setTimeout(()=>{
+      if(lastHeard>=asked){checking=false;return;}
+      try{conn.send({type:'hello',team:myTeam});}catch(e){}
+      setTimeout(()=>{
+        checking=false;
+        if(lastHeard<asked)connectionLost('Reconnecting...');
+      },3000);
+    },2500);
+  }
   function connectionLost(msg,noRetry){
     connected=false;
     setStatus(msg,'error');
@@ -331,8 +381,12 @@ else{
     typePanel.classList.add('hidden');choicePanel.classList.add('hidden');
     phaseEl.textContent=noRetry?'':'Tap Reconnect (scores are safe on the host).';
     reconnectBtn.textContent='Reconnect';reconnectBtn.classList.remove('hidden');
-    if(!noRetry&&document.visibilityState==='visible')autoRetry();
+    if(noRetry)return;
+    if(document.visibilityState==='visible')autoRetry();
+    else needsReload=true;
   }
+  let needsReload=false;
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&needsReload&&!replaced){needsReload=false;autoRetry();}});
   function autoRetry(){
     // a few automatic reloads per minute at most, so a dead room doesn't loop forever
     let tries=[];try{tries=JSON.parse(sessionStorage.getItem('buzzRetries')||'[]').filter(t=>Date.now()-t<60000);}catch(e){}
@@ -341,10 +395,21 @@ else{
     setTimeout(()=>location.reload(),1500);
   }
   reconnectBtn.addEventListener('click',()=>{try{sessionStorage.removeItem('buzzRetries');}catch(e){}location.reload();});
-  document.addEventListener('visibilitychange',()=>{
-    if(document.visibilityState!=='visible'||replaced)return;
-    if(!conn||!conn.open||peer.disconnected||peer.destroyed)connectionLost('Reconnecting...');
-  });
+  let everConnected=false;
+  function onReturn(e){
+    // only for a page that was connected and then left (not the first load, not a plain bfcache-less pageshow)
+    if(!everConnected||document.visibilityState!=='visible'||replaced)return;
+    if(e&&e.type==='pageshow'&&!e.persisted)return;
+    if(!conn||!conn.open||peer.destroyed){connectionLost('Reconnecting...');return;}
+    if(peer.disconnected){try{peer.reconnect();}catch(e){}}
+    if(!connected||needsCheck||Date.now()-lastHeard>8000)checkLink();
+  }
+  document.addEventListener('visibilitychange',onReturn);
+  window.addEventListener('pageshow',onReturn);
+  window.addEventListener('focus',onReturn);
+  // light heartbeat while the page is visible, so the host knows this phone is still here
+  setInterval(()=>{if(document.visibilityState==='visible'&&conn&&conn.open&&!replaced){try{conn.send({type:'ping',team:myTeam});}catch(e){}}},10000);
+  window.__buzzerDebug={peer:()=>peer,conn:()=>conn,checkLink,state:()=>({connected,lastHeard,needsCheck,checking,replaced})};
   buzzBtn.addEventListener('click',()=>{
     if(buzzBtn.classList.contains('armed') && conn && conn.open){
       conn.send({type:'buzz',team:myTeam});
@@ -358,7 +423,7 @@ else{
       vibrate([20,40,20]);
     }
   });
-  finalSubmit.addEventListener('click',()=>{
+  function submitFinal(){
     if(!conn||!conn.open)return;
     const phase=lastFinalState.phase;
     if(phase==='final-wager'){
@@ -378,10 +443,11 @@ else{
       finalSubmit.disabled=true;
       finalCopy.textContent='Answer sent. Waiting for the host...';
     }
-  });
-  finalInput.addEventListener('keydown',e=>{
-    if(e.key==='Enter'&&!finalSubmit.classList.contains('hidden'))finalSubmit.click();
-  });
+    finalInput.blur();resetScroll();
+  }
+  onTap(finalSubmit,submitFinal);
+  document.getElementById('finalForm').addEventListener('submit',e=>{e.preventDefault();if(!finalSubmit.classList.contains('hidden'))submitFinal();});
+  finalInput.addEventListener('blur',resetScroll);
   typeInput.addEventListener('input',()=>{
     if(!conn||!conn.open)return;
     lastState.typedAnswer=typeInput.value;
@@ -397,12 +463,9 @@ else{
       vibrate(35);
     });
   });
-  typeSubmit.addEventListener('click',()=>submitTyped());
-  typeInput.addEventListener('keydown',e=>{
-    if(e.key!=='Enter')return;
-    e.preventDefault();
-    submitTyped();
-  });
+  onTap(typeSubmit,()=>{if(!lastState.typedSubmitted)submitTyped();});
+  document.getElementById('typeForm').addEventListener('submit',e=>{e.preventDefault();submitTyped();});
+  typeInput.addEventListener('blur',resetScroll);
   function submitTyped(){
     if(!typeInput.value.trim()){typeInput.focus();vibrate([20,40,20]);return;}
     if(conn&&conn.open){
@@ -410,8 +473,11 @@ else{
       try{conn.send({type:'typedSubmit',team:myTeam,text:typeInput.value});}catch(err){}
     }
     phaseEl.textContent='ANSWER SUBMITTED - wait for host';
-    typeSubmit.disabled=true;typeSubmit.textContent='Answer submitted';
-    typeInput.blur();
+    typeSubmit.disabled=true;typeSubmit.textContent='Sending...';
+    typeInput.blur();resetScroll();
+    // if the host has not confirmed within a few seconds, let the player try again
+    clearTimeout(submitTyped._t);
+    submitTyped._t=setTimeout(()=>{if(!lastState.typedSubmitted&&typeSubmit.textContent==='Sending...'){typeSubmit.disabled=false;typeSubmit.textContent='Submit Answer';phaseEl.textContent='Not confirmed yet - tap Submit again';}},4000);
     vibrate(35);
   }
 }

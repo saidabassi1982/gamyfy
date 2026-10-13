@@ -253,10 +253,10 @@ function applyState(s){
     if(ddSolo){
       if(lastState.ddPending){
         mode='disarmed';label='Wager...';
-        phase=cluePickerIdx===myTeam?'Your team found the bonus - the host is setting your wager':'Bonus wager - one team plays alone';
+        phase=cluePickerIdx===myTeam?'Your team found the Daily Double - the host is setting your wager':'Daily Double - one team plays alone';
       }
       else if(cluePickerIdx===myTeam){mode='you';label='Daily Double';phase='You play alone';}
-      else{mode='disarmed';label='Watching...';phase='Bonus wager - one team plays alone';}
+      else{mode='disarmed';label='Watching...';phase='Daily Double - one team plays alone';}
     } else if(signalLocked){
       mode='disarmed';label='Wait...';phase='Clue is being read';
     } else if(attempted.includes(myTeam)){

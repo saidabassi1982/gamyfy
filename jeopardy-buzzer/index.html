@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,maximum-scale=1" />
 <meta name="theme-color" content="#0a0640" />
-<title>Buzzer</title>
+<title>Jeopardy - Buzzer Edition</title>
 <link rel="icon" href="data:,">
 <script src="assets/vendor/peerjs.min.js"></script>
 <style>
@@ -78,6 +78,7 @@ body{display:flex;flex-direction:column;padding:20px;gap:14px}
 </style>
 </head>
 <body>
+<div style="text-align:center;color:#ffdf3d;font-weight:900;font-size:12px;letter-spacing:2px">JEOPARDY · BUZZER EDITION</div>
 <div class="header">
   <span>Room <b id="room">-</b></span>
   <span id="status" class="status">Connecting...</span>
@@ -98,7 +99,7 @@ body{display:flex;flex-direction:column;padding:20px;gap:14px}
 </div>
 <div class="phone-screen hidden" id="finalScreen">
   <div class="final-card">
-    <div class="final-kicker" id="finalKicker">Final Round</div>
+    <div class="final-kicker" id="finalKicker">Final Jeopardy</div>
     <div class="final-title" id="finalTitle">Waiting for host</div>
     <div class="final-copy" id="finalCopy">Keep this phone open.</div>
     <div class="final-clue hidden" id="finalClue"></div>
@@ -119,7 +120,7 @@ const color=params.get('color')||'#7a2bd6';
 document.documentElement.style.setProperty('--team-color',color);
 document.getElementById('room').textContent=room||'?';
 document.getElementById('teamName').textContent=myName;
-document.title=`Buzzer - ${myName}`;
+document.title=`Jeopardy Buzzer - ${myName}`;
 
 const statusEl=document.getElementById('status');
 const phaseEl=document.getElementById('phase');
@@ -169,11 +170,11 @@ function applyFinalState(s){
   showFinalPhoneScreen(inFinal);
   if(!inFinal)return;
   resetFinalControls();
-  finalKicker.textContent='Final Round';
-  finalTitle.textContent=lastFinalState.category||'Final Round';
+  finalKicker.textContent='Final Jeopardy';
+  finalTitle.textContent=lastFinalState.category||'Final Jeopardy';
   if(!lastFinalState.isFinalist){
-    finalCopy.textContent='Your team is not eligible for Final Round. Watch the host screen.';
-    phaseEl.textContent='Watching Final Round';
+    finalCopy.textContent='Your team is not eligible for Final Jeopardy. Watch the host screen.';
+    phaseEl.textContent='Watching Final Jeopardy';
     return;
   }
   if(phase==='final-wager'){
@@ -196,7 +197,7 @@ function applyFinalState(s){
     finalSubmit.classList.remove('hidden');
   } else if(phase==='final-answer'){
     phaseEl.textContent='Private response';
-    finalCopy.textContent='Type your Final Round response. It stays hidden until the host reveals it.';
+    finalCopy.textContent='Type your Final Jeopardy response. It stays hidden until the host reveals it.';
     finalClue.textContent=lastFinalState.clue||'';
     finalClue.classList.remove('hidden');
     if(lastFinalState.answerSubmitted){
@@ -214,7 +215,7 @@ function applyFinalState(s){
     finalSubmit.classList.remove('hidden');
   } else {
     phaseEl.textContent='Final review';
-    finalCopy.textContent='Final Round is locked. Watch the host screen for the reveal.';
+    finalCopy.textContent='Final Jeopardy is locked. Watch the host screen for the reveal.';
     finalLocked.textContent='Locked';
     finalLocked.classList.remove('hidden');
   }
@@ -230,7 +231,7 @@ function applyState(s){
         mode='disarmed';label='Wager...';
         phase=cluePickerIdx===myTeam?'Your team found the bonus - the host is setting your wager':'Bonus wager - one team plays alone';
       }
-      else if(cluePickerIdx===myTeam){mode='you';label='Bonus Wager';phase='You play alone';}
+      else if(cluePickerIdx===myTeam){mode='you';label='Daily Double';phase='You play alone';}
       else{mode='disarmed';label='Watching...';phase='Bonus wager - one team plays alone';}
     } else if(signalLocked){
       mode='disarmed';label='Wait...';phase='Clue is being read';

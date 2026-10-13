@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,maximum-scale=1" />
+<meta name="theme-color" content="#0a0640" />
+<title>Jeopardy - Buzzer Edition</title>
+<link rel="icon" href="data:,">
+<script src="../jeopardy-buzzer/assets/vendor/peerjs.min.js"></script>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+html,body{margin:0;height:100%;overflow:hidden;background:#0a0640;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+body{display:flex;flex-direction:column;padding:20px;gap:14px}
+.header{display:flex;align-items:center;justify-content:space-between;font-size:13px;color:#aaa}
+.team-name{font-weight:900;font-size:24px;color:var(--team-color);text-align:center;letter-spacing:2px}
+.status{text-align:center;font-size:14px;padding:8px;border-radius:8px;background:rgba(255,255,255,.06)}
+.status.connecting{background:rgba(255,180,0,.15);color:#ffb400}
+.status.connected{background:rgba(39,196,107,.15);color:#27c46b}
+.status.error{background:rgba(231,76,60,.15);color:#e74c3c}
+.phase{text-align:center;font-size:13px;color:#aaa;font-weight:700;letter-spacing:1px;text-transform:uppercase;min-height:18px}
+.btn-buzz{flex:1;border:none;border-radius:32px;
+  font-family:inherit;font-size:54px;font-weight:900;letter-spacing:4px;
+  cursor:pointer;text-shadow:0 2px 0 rgba(0,0,0,.4);
+  transition:transform .08s,box-shadow .12s,background .15s,opacity .15s;
+  position:relative;overflow:hidden}
+.btn-buzz.armed{background:var(--team-color);color:#fff;
+  box-shadow:0 12px 0 rgba(0,0,0,.3),0 0 80px var(--team-color),0 0 60px rgba(255,255,255,.1) inset;
+  animation:armedPulse 1.2s ease-in-out infinite}
+.btn-buzz.armed:active{transform:translateY(8px);box-shadow:0 4px 0 rgba(0,0,0,.3),0 0 60px rgba(255,255,255,.2) inset}
+.btn-buzz.disarmed{background:#1a1455;color:rgba(255,255,255,.35);
+  box-shadow:0 4px 0 rgba(0,0,0,.2);cursor:not-allowed;font-size:22px}
+.btn-buzz.locked{background:#3a1a1a;color:rgba(255,100,100,.5);
+  box-shadow:0 4px 0 rgba(0,0,0,.2);cursor:not-allowed;font-size:22px}
+.btn-buzz.you{background:linear-gradient(180deg,var(--team-color),rgba(0,0,0,.4));color:#fff;
+  box-shadow:0 8px 0 rgba(0,0,0,.3);cursor:not-allowed;font-size:28px}
+.btn-buzz.flash{animation:buzzFlash .35s}
+.btn-buzz.shake{animation:buzzShake .35s}
+.phone-screen{flex:1;display:flex;flex-direction:column;gap:14px}
+.phone-screen.hidden,.hidden{display:none!important}
+.final-card{flex:1;display:flex;flex-direction:column;justify-content:center;gap:16px;
+  border:2px solid var(--team-color);border-radius:24px;padding:22px;background:rgba(255,255,255,.06);
+  box-shadow:0 0 40px rgba(255,255,255,.08) inset}
+.final-kicker{text-align:center;color:#ffdf3d;font-weight:900;letter-spacing:2px;text-transform:uppercase}
+.final-title{text-align:center;font-size:24px;font-weight:900;color:var(--team-color);letter-spacing:1px}
+.final-copy{text-align:center;color:#d9e6ff;font-size:14px;line-height:1.45}
+.final-clue{background:#eef1f8;color:#14224a;border-radius:16px;padding:18px;font-family:Georgia,serif;
+  font-weight:800;text-align:center;text-transform:uppercase;line-height:1.25}
+.final-input{width:100%;border:2px solid rgba(255,255,255,.35);border-radius:14px;padding:18px;
+  background:#0e0e3a;color:#fff;font-size:24px;font-weight:900;text-align:center}
+.final-input.answer{text-transform:uppercase;font-size:18px;text-align:left}
+.final-submit{border:none;border-radius:18px;padding:18px;background:linear-gradient(180deg,var(--team-color),#1a1455);
+  color:#fff;font-size:20px;font-weight:900;letter-spacing:1px;box-shadow:0 8px 0 rgba(0,0,0,.25)}
+.final-submit:disabled{opacity:.45;box-shadow:none}
+.locked-badge{align-self:center;border-radius:999px;padding:12px 20px;background:rgba(255,223,61,.18);
+  color:#ffdf3d;font-size:18px;font-weight:900;letter-spacing:1px}
+.type-panel{display:flex;flex-direction:column;gap:10px;margin-top:6px}
+.type-panel.hidden{display:none!important}
+.choice-panel{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:6px}
+.choice-panel.hidden{display:none!important}
+.choice-btn{border:2px solid var(--team-color);border-radius:18px;background:#0e0e3a;color:#fff;font-size:28px;font-weight:900;padding:18px 10px;box-shadow:0 6px 0 rgba(0,0,0,.25)}
+.choice-btn:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.25)}
+.choice-btn.out{opacity:.3;text-decoration:line-through}
+.type-label{text-align:center;color:#ffdf3d;font-weight:900;font-size:13px;letter-spacing:1.5px;text-transform:uppercase}
+.type-input{width:100%;background:#0e0e3a;color:#fff;border:2px solid var(--team-color,#7a2bd6);
+  border-radius:18px;padding:18px;font-size:22px;font-weight:800;font-family:inherit;text-align:center;letter-spacing:1px;box-sizing:border-box}
+.type-input:focus{outline:none;background:#1a1455;box-shadow:0 0 30px var(--team-color,#7a2bd6)}
+.type-input::placeholder{color:rgba(255,255,255,.3);font-weight:600;letter-spacing:.5px;font-size:16px}
+@keyframes armedPulse{
+  0%,100%{filter:brightness(1)}
+  50%{filter:brightness(1.18)}
+}
+@keyframes buzzFlash{0%{filter:brightness(2.4)}100%{filter:brightness(1)}}
+@keyframes buzzShake{0%{transform:translateX(0)}25%{transform:translateX(-12px)}50%{transform:translateX(12px)}75%{transform:translateX(-8px)}100%{transform:translateX(0)}}
+.foot{font-size:10px;color:#555;text-align:center}
+.type-submit{margin-top:2px}
+.reconnect-btn{border:none;border-radius:18px;padding:16px;background:#ffdf3d;color:#1a1455;font-size:18px;font-weight:900;letter-spacing:1px}
+.hidden{display:none!important}
+input{-webkit-user-select:text;user-select:text}
+.type-form{display:contents}
+</style>
+</head>
+<body>
+<div style="text-align:center;color:#ffdf3d;font-weight:900;font-size:12px;letter-spacing:2px">JEOPARDY · BUZZER EDITION</div>
+<div class="header">
+  <span>Room <b id="room">-</b></span>
+  <span id="status" class="status">Connecting...</span>
+</div>
+<div class="team-name" id="teamName">...</div>
+<div class="phase" id="phase">&nbsp;</div>
+<button class="btn-buzz disarmed" id="buzz" disabled>Waiting...</button>
+<div class="type-panel hidden" id="typePanel">
+  <form class="type-form" id="typeForm" autocomplete="off" novalidate>
+  <div class="type-label">Type your answer</div>
+  <input class="type-input" id="typeInput" type="text" autocomplete="off" autocapitalize="characters" enterkeyhint="send" placeholder="Type the answer..." />
+  <button class="final-submit type-submit" id="typeSubmit" type="submit">Submit Answer</button>
+  </form>
+</div>
+<button class="reconnect-btn hidden" id="reconnectBtn" type="button">Reconnect</button>
+<div class="choice-panel hidden" id="choicePanel">
+  <button class="choice-btn" data-choice="0">1</button>
+  <button class="choice-btn" data-choice="1">2</button>
+  <button class="choice-btn" data-choice="2">3</button>
+</div>
+<div class="phone-screen hidden" id="finalScreen">
+  <div class="final-card">
+    <div class="final-kicker" id="finalKicker">Final Jeopardy</div>
+    <div class="final-title" id="finalTitle">Waiting for host</div>
+    <div class="final-copy" id="finalCopy">Keep this phone open.</div>
+    <div class="final-clue hidden" id="finalClue"></div>
+    <form class="type-form" id="finalForm" autocomplete="off" novalidate>
+    <input class="final-input hidden" id="finalInput" enterkeyhint="send" />
+    <button class="final-submit hidden" id="finalSubmit" type="submit">Submit</button>
+    </form>
+    <div class="locked-badge hidden" id="finalLocked">Locked</div>
+  </div>
+</div>
+<div class="foot">Keep this page open. Tap when armed. &middot; buzzer v2026.10.13</div>
+
+<script>
+const params=new URLSearchParams(location.search);
+const room=(params.get('room')||'').toUpperCase();
+const myTeam=parseInt(params.get('team')||'0',10);
+const myName=params.get('name')||`Team ${myTeam+1}`;
+const color=params.get('color')||'#7a2bd6';
+
+document.documentElement.style.setProperty('--team-color',color);
+document.getElementById('room').textContent=room||'?';
+document.getElementById('teamName').textContent=myName;
+document.title=`Jeopardy Buzzer - ${myName}`;
+
+const statusEl=document.getElementById('status');
+const phaseEl=document.getElementById('phase');
+const buzzBtn=document.getElementById('buzz');
+const finalScreen=document.getElementById('finalScreen');
+const finalKicker=document.getElementById('finalKicker');
+const finalTitle=document.getElementById('finalTitle');
+const finalCopy=document.getElementById('finalCopy');
+const finalClue=document.getElementById('finalClue');
+const finalInput=document.getElementById('finalInput');
+const finalSubmit=document.getElementById('finalSubmit');
+const finalLocked=document.getElementById('finalLocked');
+const typePanel=document.getElementById('typePanel');
+const typeInput=document.getElementById('typeInput');
+const choicePanel=document.getElementById('choicePanel');
+const typeSubmit=document.getElementById('typeSubmit');
+const reconnectBtn=document.getElementById('reconnectBtn');
+let replaced=false;
+function onTap(el,fn){
+  let last=0;
+  const run=e=>{
+    if(e&&e.cancelable)e.preventDefault(); // also stops the form's own submit: fn() below does the work once
+    const now=Date.now();if(now-last<600)return;last=now;
+    if(el.disabled)return;
+    fn();
+  };
+  el.addEventListener('touchend',run,{passive:false});
+  el.addEventListener('pointerup',e=>{if(e.pointerType!=='mouse')run(e);});
+  el.addEventListener('click',run);
+}
+// iOS leaves the page scrolled (and tap targets offset) after the keyboard closes
+function resetScroll(){setTimeout(()=>{try{window.scrollTo(0,0);document.body.scrollTop=0;}catch(e){}},60);}
+
+let connected=false;
+let lastArmed=false;
+let lastState={hasClue:false,activeIdx:null,attempted:[],ddSolo:false,cluePickerIdx:null,signalLocked:false,allowTyping:false,typedAnswer:'',choiceOptions:[]};
+let lastFinalState={phase:'board'};
+
+function setStatus(msg,kind){
+  statusEl.textContent=msg;
+  statusEl.className='status '+(kind||'');
+}
+function vibrate(pat){if(navigator.vibrate)navigator.vibrate(pat);}
+
+function showFinalPhoneScreen(show){
+  finalScreen.classList.toggle('hidden',!show);
+  buzzBtn.classList.toggle('hidden',show);
+}
+function resetFinalControls(){
+  finalClue.classList.add('hidden');
+  finalInput.classList.add('hidden');
+  finalSubmit.classList.add('hidden');
+  finalLocked.classList.add('hidden');
+  finalInput.value='';
+  finalSubmit.disabled=false;
+}
+function applyFinalState(s){
+  const prevPhase=lastFinalState.phase;
+  const typed=finalInput.value;
+  lastFinalState=Object.assign(lastFinalState,s);
+  // a repeated update for the same phase must not wipe what the player is typing
+  setTimeout(()=>{if(lastFinalState.phase===prevPhase&&typed&&!finalInput.classList.contains('hidden')&&!finalInput.value)finalInput.value=typed;},0);
+  const phase=lastFinalState.phase||'board';
+  const inFinal=phase.startsWith('final-');
+  showFinalPhoneScreen(inFinal);
+  if(!inFinal)return;
+  resetFinalControls();
+  finalKicker.textContent='Final Jeopardy';
+  finalTitle.textContent=lastFinalState.category||'Final Jeopardy';
+  if(!lastFinalState.isFinalist){
+    finalCopy.textContent='Your team is not eligible for Final Jeopardy. Watch the host screen.';
+    phaseEl.textContent='Watching Final Jeopardy';
+    return;
+  }
+  if(phase==='final-wager'){
+    phaseEl.textContent='Private wager';
+    finalCopy.textContent=`Enter a wager from $0 to $${Number(lastFinalState.maxWager||0).toLocaleString()}.`;
+    if(lastFinalState.wagerLocked){
+      finalLocked.textContent='Wager locked';
+      finalLocked.classList.remove('hidden');
+      finalCopy.textContent='Your wager is locked. Wait for the host to reveal the clue.';
+      return;
+    }
+    finalInput.type='number';
+    finalInput.inputMode='numeric';
+    finalInput.min='0';
+    finalInput.max=String(lastFinalState.maxWager||0);
+    finalInput.placeholder='$0';
+    finalInput.className='final-input';
+    finalSubmit.textContent='Lock Wager';
+    finalInput.classList.remove('hidden');
+    finalSubmit.classList.remove('hidden');
+  } else if(phase==='final-answer'){
+    phaseEl.textContent='Private response';
+    finalCopy.textContent='Type your Final Jeopardy response. It stays hidden until the host reveals it.';
+    finalClue.textContent=lastFinalState.clue||'';
+    finalClue.classList.remove('hidden');
+    if(lastFinalState.answerSubmitted){
+      finalLocked.textContent='Answer submitted';
+      finalLocked.classList.remove('hidden');
+      finalCopy.textContent='Your response is submitted. Wait for the host adjudication.';
+      return;
+    }
+    finalInput.type='text';
+    finalInput.inputMode='text';
+    finalInput.placeholder='What is...';
+    finalInput.className='final-input answer';
+    finalSubmit.textContent='Submit Answer';
+    finalInput.classList.remove('hidden');
+    finalSubmit.classList.remove('hidden');
+  } else {
+    phaseEl.textContent='Final review';
+    finalCopy.textContent='Final Jeopardy is locked. Watch the host screen for the reveal.';
+    finalLocked.textContent='Locked';
+    finalLocked.classList.remove('hidden');
+  }
+}
+
+function applyState(s){
+  lastState=Object.assign(lastState,s);
+  const {hasClue,activeIdx,attempted,ddSolo,cluePickerIdx,signalLocked}=lastState;
+  let mode='disarmed', label='Waiting for clue...', phase='Board phase';
+  if(hasClue){
+    if(ddSolo){
+      if(lastState.ddPending){
+        mode='disarmed';label='Wager...';
+        phase=cluePickerIdx===myTeam?'Your team found the bonus - the host is setting your wager':'Bonus wager - one team plays alone';
+      }
+      else if(cluePickerIdx===myTeam){mode='you';label='Daily Double';phase='You play alone';}
+      else{mode='disarmed';label='Watching...';phase='Bonus wager - one team plays alone';}
+    } else if(signalLocked){
+      mode='disarmed';label='Wait...';phase='Clue is being read';
+    } else if(attempted.includes(myTeam)){
+      mode='locked';label='Locked out';phase='You answered already';
+    } else if(activeIdx===myTeam){
+      mode='you';label='Answer!';phase='You buzzed in';
+    } else if(activeIdx!=null){
+      const otherName=(Array.isArray(lastState.teamNames)&&lastState.teamNames[activeIdx])||`Team ${activeIdx+1}`;
+      mode='disarmed';label='Wait...';phase=`${otherName} is answering`;
+    } else {
+      mode='armed';label='BUZZ';phase='Clue is live - buzz to answer';
+    }
+  }
+  buzzBtn.className='btn-buzz '+mode;
+  buzzBtn.textContent=label;
+  buzzBtn.disabled=mode!=='armed';
+  phaseEl.textContent=phase;
+  // vibrate on arming transition
+  if(mode==='armed' && !lastArmed)vibrate([60,40,60]);
+  lastArmed=(mode==='armed');
+  // Typed-answer panel: show only when this team is actively answering in verbal mode
+  const showType=mode==='you' && lastState.allowTyping && lastState.hasClue;
+  const showChoice=mode==='you' && !lastState.allowTyping && lastState.hasClue && Array.isArray(lastState.choiceOptions) && lastState.choiceOptions.length>0;
+  typePanel.classList.toggle('hidden',!showType);
+  choicePanel.classList.toggle('hidden',!showChoice);
+  if(showChoice){
+    const off=Array.isArray(lastState.disabledChoices)?lastState.disabledChoices:[];
+    choicePanel.querySelectorAll('button').forEach(b=>{const out=off.includes(Number(b.dataset.choice));b.disabled=out;b.classList.toggle('out',out);});
+  }
+  if(showType){
+    if(document.activeElement!==typeInput && typeInput.value!==(lastState.typedAnswer||'')){
+      typeInput.value=lastState.typedAnswer||'';
+    }
+    const done=!!lastState.typedSubmitted;
+    typeInput.disabled=done;typeSubmit.disabled=done;
+    typeSubmit.textContent=done?'Answer submitted':'Submit Answer';
+    if(done)phaseEl.textContent='ANSWER SUBMITTED - wait for host';
+  } else {
+    typeInput.value='';
+  }
+}
+
+if(!room){setStatus('Missing room code','error');phaseEl.textContent='Open the QR from the host screen';}
+else{
+  setStatus('Connecting...','connecting');
+  const peer=new Peer({debug:0});
+  let conn=null;
+  peer.on('open',()=>{
+    conn=peer.connect('jeop-'+room,{reliable:true});
+    conn.on('open',()=>{
+      connected=true;
+      setStatus('Connected','connected');
+      reconnectBtn.classList.add('hidden');
+      try{sessionStorage.removeItem('buzzRetries');}catch(e){}
+      conn.send({type:'hello',team:myTeam});
+    });
+    conn.on('data',data=>{
+      if(!data||typeof data!=='object')return;
+      lastHeard=Date.now();everConnected=true;
+      if(!replaced&&!connected){connected=true;setStatus('Connected','connected');reconnectBtn.classList.add('hidden');}
+      if(data.type==='pong')return;
+      if(data.type==='ack'){connected=true;setStatus('Connected','connected');reconnectBtn.classList.add('hidden');try{sessionStorage.removeItem('buzzRetries');}catch(e){}return;}
+      if(data.type==='replaced'){
+        replaced=true;
+        setStatus('Another phone took over','error');
+        buzzBtn.className='btn-buzz disarmed';buzzBtn.textContent='Not active';buzzBtn.disabled=true;
+        typePanel.classList.add('hidden');choicePanel.classList.add('hidden');
+        phaseEl.textContent='Another phone joined as this team. Tap below to use this phone instead.';
+        reconnectBtn.textContent='Use this phone';reconnectBtn.classList.remove('hidden');
+        return;
+      }
+      if(data.type==='rejected'){connectionLost(data.reason||'The host refused this phone',true);return;}
+      if(data.type==='state')applyState(data);
+      if(data.type==='finalState')applyFinalState(data);
+      if(data.type==='typedAnswer'){
+        lastState.typedAnswer=String(data.text||'');
+        if(document.activeElement!==typeInput)typeInput.value=lastState.typedAnswer;
+      }
+    });
+    conn.on('close',()=>{
+      connected=false;
+      if(replaced)return;
+      connectionLost('Disconnected');
+    });
+    conn.on('error',err=>{
+      setStatus('Error: '+(err?.type||err?.message||'unknown'),'error');
+    });
+  });
+  peer.on('error',err=>{
+    if(err?.type==='peer-unavailable'){connectionLost('Room not found - check the QR code',true);return;}
+    if(conn&&conn.open&&['network','server-error','socket-error','socket-closed','disconnected'].includes(err?.type)){
+      // only the matchmaking server dropped (common after Android sleeps the tab): re-register and verify the link
+      try{if(!peer.destroyed&&peer.disconnected)peer.reconnect();}catch(e){}
+      if(document.visibilityState==='visible')checkLink();else needsCheck=true;
+      return;
+    }
+    connectionLost('Connection lost ('+(err?.type||'unknown')+')');
+  });
+  // losing the signalling server alone doesn't break the link to the host: just re-register
+  peer.on('disconnected',()=>{try{if(!peer.destroyed)peer.reconnect();}catch(e){}});
+  let lastHeard=Date.now(),needsCheck=false,checking=false;
+  // ask the host to answer: new hosts reply to ping, older hosts reply to hello with ack
+  function checkLink(){
+    if(checking||replaced)return;
+    if(!conn||!conn.open||peer.destroyed){connectionLost('Reconnecting...');return;}
+    checking=true;needsCheck=false;
+    const asked=Date.now();
+    try{conn.send({type:'ping',team:myTeam});}catch(e){}
+    setTimeout(()=>{
+      if(lastHeard>=asked){checking=false;return;}
+      try{conn.send({type:'hello',team:myTeam});}catch(e){}
+      setTimeout(()=>{
+        checking=false;
+        if(lastHeard<asked)connectionLost('Reconnecting...');
+      },3000);
+    },2500);
+  }
+  function connectionLost(msg,noRetry){
+    connected=false;
+    setStatus(msg,'error');
+    buzzBtn.className='btn-buzz disarmed';buzzBtn.textContent='Not connected';buzzBtn.disabled=true;
+    typePanel.classList.add('hidden');choicePanel.classList.add('hidden');
+    phaseEl.textContent=noRetry?'':'Tap Reconnect (scores are safe on the host).';
+    reconnectBtn.textContent='Reconnect';reconnectBtn.classList.remove('hidden');
+    if(noRetry)return;
+    if(document.visibilityState==='visible')autoRetry();
+    else needsReload=true;
+  }
+  let needsReload=false;
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&needsReload&&!replaced){needsReload=false;autoRetry();}});
+  function autoRetry(){
+    // a few automatic reloads per minute at most, so a dead room doesn't loop forever
+    let tries=[];try{tries=JSON.parse(sessionStorage.getItem('buzzRetries')||'[]').filter(t=>Date.now()-t<60000);}catch(e){}
+    if(tries.length>=3)return;
+    tries.push(Date.now());try{sessionStorage.setItem('buzzRetries',JSON.stringify(tries));}catch(e){}
+    setTimeout(()=>location.reload(),1500);
+  }
+  reconnectBtn.addEventListener('click',()=>{try{sessionStorage.removeItem('buzzRetries');}catch(e){}location.reload();});
+  let everConnected=false;
+  function onReturn(e){
+    // only for a page that was connected and then left (not the first load, not a plain bfcache-less pageshow)
+    if(!everConnected||document.visibilityState!=='visible'||replaced)return;
+    if(e&&e.type==='pageshow'&&!e.persisted)return;
+    if(!conn||!conn.open||peer.destroyed){connectionLost('Reconnecting...');return;}
+    if(peer.disconnected){try{peer.reconnect();}catch(e){}}
+    if(!connected||needsCheck||Date.now()-lastHeard>8000)checkLink();
+  }
+  document.addEventListener('visibilitychange',onReturn);
+  window.addEventListener('pageshow',onReturn);
+  window.addEventListener('focus',onReturn);
+  // light heartbeat while the page is visible, so the host knows this phone is still here
+  setInterval(()=>{if(document.visibilityState==='visible'&&conn&&conn.open&&!replaced){try{conn.send({type:'ping',team:myTeam});}catch(e){}}},10000);
+  window.__buzzerDebug={peer:()=>peer,conn:()=>conn,checkLink,state:()=>({connected,lastHeard,needsCheck,checking,replaced})};
+  buzzBtn.addEventListener('click',()=>{
+    if(buzzBtn.classList.contains('armed') && conn && conn.open){
+      conn.send({type:'buzz',team:myTeam});
+      buzzBtn.classList.add('flash');
+      setTimeout(()=>buzzBtn.classList.remove('flash'),350);
+      vibrate(50);
+    } else {
+      // Not armed -> shake feedback
+      buzzBtn.classList.add('shake');
+      setTimeout(()=>buzzBtn.classList.remove('shake'),350);
+      vibrate([20,40,20]);
+    }
+  });
+  function submitFinal(){
+    if(!conn||!conn.open)return;
+    const phase=lastFinalState.phase;
+    if(phase==='final-wager'){
+      const max=Number(lastFinalState.maxWager||0);
+      const value=Math.max(0,Math.min(parseInt(finalInput.value,10)||0,max));
+      conn.send({type:'finalWager',team:myTeam,value});
+      finalSubmit.disabled=true;
+      finalCopy.textContent='Wager sent. Waiting for the host...';
+    } else if(phase==='final-answer'){
+      const value=finalInput.value.trim();
+      if(!value){
+        finalInput.focus();
+        vibrate([20,40,20]);
+        return;
+      }
+      conn.send({type:'finalAnswer',team:myTeam,value});
+      finalSubmit.disabled=true;
+      finalCopy.textContent='Answer sent. Waiting for the host...';
+    }
+    finalInput.blur();resetScroll();
+  }
+  onTap(finalSubmit,submitFinal);
+  document.getElementById('finalForm').addEventListener('submit',e=>{e.preventDefault();if(!finalSubmit.classList.contains('hidden'))submitFinal();});
+  finalInput.addEventListener('blur',resetScroll);
+  typeInput.addEventListener('input',()=>{
+    if(!conn||!conn.open)return;
+    lastState.typedAnswer=typeInput.value;
+    try{conn.send({type:'typing',team:myTeam,text:typeInput.value});}catch(e){}
+  });
+  choicePanel.querySelectorAll('[data-choice]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      if(!conn||!conn.open)return;
+      const choice=Number(btn.dataset.choice);
+      conn.send({type:'choice',team:myTeam,choice});
+      choicePanel.querySelectorAll('button').forEach(b=>b.disabled=true);
+      phaseEl.textContent='ANSWER SUBMITTED - wait for host';
+      vibrate(35);
+    });
+  });
+  onTap(typeSubmit,()=>{if(!lastState.typedSubmitted)submitTyped();});
+  document.getElementById('typeForm').addEventListener('submit',e=>{e.preventDefault();submitTyped();});
+  typeInput.addEventListener('blur',resetScroll);
+  function submitTyped(){
+    if(!typeInput.value.trim()){typeInput.focus();vibrate([20,40,20]);return;}
+    if(conn&&conn.open){
+      lastState.typedAnswer=typeInput.value;
+      try{conn.send({type:'typedSubmit',team:myTeam,text:typeInput.value});}catch(err){}
+    }
+    phaseEl.textContent='ANSWER SUBMITTED - wait for host';
+    typeSubmit.disabled=true;typeSubmit.textContent='Sending...';
+    typeInput.blur();resetScroll();
+    // if the host has not confirmed within a few seconds, let the player try again
+    clearTimeout(submitTyped._t);
+    submitTyped._t=setTimeout(()=>{if(!lastState.typedSubmitted&&typeSubmit.textContent==='Sending...'){typeSubmit.disabled=false;typeSubmit.textContent='Submit Answer';phaseEl.textContent='Not confirmed yet - tap Submit again';}},4000);
+    vibrate(35);
+  }
+}
+</script>
+</body>
+</html>
